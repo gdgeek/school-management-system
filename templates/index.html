@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}首页 - 学校管理系统{% endblock %}
+{% block content %}
+<h2 class="mb-4">欢迎使用学校管理系统</h2>
+<div class="row g-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-info h-100">
+      <div class="card-body text-center">
+        <h1 class="display-4">{{ student_count }}</h1>
+        <p class="card-text fs-5">学生总数</p>
+        <a href="{{ url_for('students') }}" class="btn btn-light btn-sm">查看详情</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-success h-100">
+      <div class="card-body text-center">
+        <h1 class="display-4">{{ teacher_count }}</h1>
+        <p class="card-text fs-5">教师总数</p>
+        <a href="{{ url_for('teachers') }}" class="btn btn-light btn-sm">查看详情</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-warning h-100">
+      <div class="card-body text-center">
+        <h1 class="display-4">{{ course_count }}</h1>
+        <p class="card-text fs-5">课程总数</p>
+        <a href="{{ url_for('courses') }}" class="btn btn-light btn-sm">查看详情</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-danger h-100">
+      <div class="card-body text-center">
+        <h1 class="display-4">{{ grade_count }}</h1>
+        <p class="card-text fs-5">成绩记录</p>
+        <a href="{{ url_for('grades') }}" class="btn btn-light btn-sm">查看详情</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

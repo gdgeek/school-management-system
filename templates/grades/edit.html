@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}编辑成绩{% endblock %}
+{% block content %}
+<h3 class="mb-3">编辑成绩</h3>
+<form method="post" class="col-md-6">
+  <div class="mb-3">
+    <label class="form-label">学生 *</label>
+    <select name="student_id" class="form-select" required>
+      <option value="">请选择学生</option>
+      {% for s in students %}
+      <option value="{{ s.id }}" {% if grade.student_id == s.id %}selected{% endif %}>
+        {{ s.name }} ({{ s.student_id }})
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">课程 *</label>
+    <select name="course_id" class="form-select" required>
+      <option value="">请选择课程</option>
+      {% for c in courses %}
+      <option value="{{ c.id }}" {% if grade.course_id == c.id %}selected{% endif %}>
+        {{ c.name }} ({{ c.course_id }})
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">成绩 (0-100)</label>
+    <input type="number" name="score" class="form-control" step="0.1" min="0" max="100"
+           value="{{ grade.score if grade.score is not none else '' }}">
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+  <a href="{{ url_for('grades') }}" class="btn btn-secondary ms-2">取消</a>
+</form>
+{% endblock %}
