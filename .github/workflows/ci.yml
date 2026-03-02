@@ -1,0 +1,120 @@
+# CI Pipeline - 学校管理系统
+# Runs on push to main/develop and on pull requests
+# Jobs: frontend (lint, type-check, test, build) and backend (test)
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'school-management-system/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'school-management-system/**'
+
+defaults:
+  run:
+    working-directory: school-management-system
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Frontend: lint, type-check, test, build
+  # ──────────────────────────────────────────────
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school-management-system/frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: school-management-system/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx vue-tsc --noEmit
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: school-management-system/frontend/coverage/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────
+  # Backend: install deps, run PHPUnit tests
+  # ──────────────────────────────────────────────
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school-management-system/backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: pdo, pdo_mysql, redis, mbstring, json, openssl
+          coverage: xdebug
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('school-management-system/backend/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run PHPUnit tests
+        run: vendor/bin/phpunit --testdox
+        env:
+          DB_HOST: localhost
+          DB_NAME: test_db
+          DB_USER: root
+          DB_PASSWORD: ''
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: ci-test-secret-key
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: school-management-system/backend/.phpunit.cache/
+          retention-days: 7

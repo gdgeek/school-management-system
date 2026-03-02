@@ -1,0 +1,186 @@
+/* AdminLTE 统一色彩变量 */
+:root {
+  --color-primary: #3c8dbc;
+  --color-primary-dark: #367fa9;
+  --color-primary-light: #5ba3cc;
+  --color-success: #00a65a;
+  --color-warning: #f39c12;
+  --color-danger: #dd4b39;
+  --color-info: #00c0ef;
+  --color-default: #d2d6de;
+
+  --color-bg: #ecf0f5;
+  --color-sidebar-bg: #222d32;
+  --color-header-bg: #3c8dbc;
+  --color-text: #333333;
+  --color-text-muted: #777777;
+  --color-border: #d2d6de;
+  --color-white: #ffffff;
+
+  font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-size: 14px;
+
+  color: var(--color-text);
+  background-color: var(--color-bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Element Plus 主色覆盖 */
+:root {
+  --el-color-primary: #3c8dbc;
+  --el-color-primary-light-3: #5ba3cc;
+  --el-color-primary-light-5: #7ab8d6;
+  --el-color-primary-light-7: #9acde0;
+  --el-color-primary-light-8: #aad5e6;
+  --el-color-primary-light-9: #d4eaf4;
+  --el-color-primary-dark-2: #367fa9;
+
+  --el-color-success: #00a65a;
+  --el-color-warning: #f39c12;
+  --el-color-danger: #dd4b39;
+  --el-color-info: #00c0ef;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-top: 0;
+}
+
+/* 按钮样式 */
+button {
+  border-radius: 3px;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+/* 主要按钮 */
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary-dark);
+  color: var(--color-white);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  border-color: #2e6da4;
+}
+
+/* 成功按钮 */
+.btn-success {
+  background-color: var(--color-success);
+  border-color: #008d4c;
+  color: var(--color-white);
+}
+
+/* 警告按钮 */
+.btn-warning {
+  background-color: var(--color-warning);
+  border-color: #e08e0b;
+  color: var(--color-white);
+}
+
+/* 危险按钮 */
+.btn-danger {
+  background-color: var(--color-danger);
+  border-color: #d73925;
+  color: var(--color-white);
+}
+
+/* 卡片样式 */
+.card {
+  background: var(--color-white);
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+/* 表格样式 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.table th {
+  background-color: #f9f9f9;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+/* 徽章 */
+.badge-primary { background-color: var(--color-primary); color: #fff; }
+.badge-success { background-color: var(--color-success); color: #fff; }
+.badge-warning { background-color: var(--color-warning); color: #fff; }
+.badge-danger  { background-color: var(--color-danger);  color: #fff; }
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
