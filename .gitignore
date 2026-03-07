@@ -50,6 +50,9 @@ docker-compose.override.yml
 backend/runtime/
 backend/web/assets/
 backend/tests/_output/
+backend/.phpunit.cache/
+backend/.env.bak
+*.bak
 
 # Frontend specific
 frontend/.vite/
