@@ -78,6 +78,20 @@ class DatabaseHelper
     }
 
     /**
+     * 执行查询并返回结果
+     * 
+     * @param string $sql SQL语句
+     * @param array $params 绑定参数
+     * @return array 查询结果
+     */
+    public function query(string $sql, array $params = []): array
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * 获取PDO实例
      */
     public function getPdo(): PDO

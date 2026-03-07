@@ -8,14 +8,16 @@ const USER_KEY = 'user_info'
  * 获取访问令牌
  */
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  const token = localStorage.getItem(TOKEN_KEY)
+  return token ? token.replace(/\s+/g, '') : null
 }
 
 /**
  * 设置访问令牌
  */
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
+  // 移除所有空白字符（换行、空格、制表符等）
+  localStorage.setItem(TOKEN_KEY, token.replace(/\s+/g, ''))
 }
 
 /**

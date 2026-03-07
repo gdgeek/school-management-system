@@ -16,9 +16,8 @@ export interface Class {
 
 // 班级表单数据接口
 export interface ClassFormData {
-  school_id: number
+  school_id: number | null
   name: string
-  image_id?: number
   info?: string
 }
 

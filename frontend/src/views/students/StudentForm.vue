@@ -43,29 +43,42 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="用户ID" prop="user_id">
+      <el-form-item label="学生" prop="user_id">
         <el-input
-          v-model.number="formData.user_id"
-          type="number"
-          placeholder="请输入用户ID"
-        />
-        <div class="form-tip">请输入要添加为学生的用户ID</div>
+          :model-value="selectedUserDisplay"
+          placeholder="请选择学生"
+          readonly
+          style="width: 100%; cursor: pointer"
+          @click="userSelectVisible = true"
+        >
+          <template #append>
+            <el-button @click="userSelectVisible = true">选择</el-button>
+          </template>
+        </el-input>
       </el-form-item>
     </el-form>
+
+    <UserSelectDialog
+      v-model:visible="userSelectVisible"
+      @select="handleUserSelect"
+    />
   </FormDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import FormDialog from '@/components/common/FormDialog.vue'
+import UserSelectDialog from '@/components/common/UserSelectDialog.vue'
 import { createStudent } from '@/api/student'
 import { getSchools } from '@/api/school'
 import { getClasses } from '@/api/class'
 import type { StudentFormData } from '@/types/student'
 import type { School } from '@/types/school'
 import type { Class } from '@/types/class'
+import type { User } from '@/types/user'
+import { useFormErrors } from '@/composables/useFormErrors'
 
 interface Props {
   visible: boolean
@@ -89,11 +102,21 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const schools = ref<School[]>([])
 const classes = ref<Class[]>([])
+const userSelectVisible = ref(false)
+const selectedUser = ref<User | null>(null)
+const { applyErrors, clearErrors } = useFormErrors(formRef)
 
 const formData = reactive<StudentFormData & { school_id?: number }>({
   user_id: 0,
-  class_id: 0,
+  class_id: undefined,
   school_id: undefined
+})
+
+const selectedUserDisplay = computed(() => {
+  if (selectedUser.value) {
+    return `${selectedUser.value.nickname || selectedUser.value.username} (ID: ${selectedUser.value.id})`
+  }
+  return ''
 })
 
 const rules: FormRules = {
@@ -104,8 +127,7 @@ const rules: FormRules = {
     { required: true, message: '请选择班级', trigger: 'change' }
   ],
   user_id: [
-    { required: true, message: '请输入用户ID', trigger: 'blur' },
-    { type: 'number', message: '用户ID必须是数字', trigger: 'blur' }
+    { required: true, message: '请选择学生', trigger: 'change' }
   ]
 }
 
@@ -135,20 +157,28 @@ async function loadClasses(schoolId: number) {
 
 // 学校变化
 function handleSchoolChange() {
-  formData.class_id = 0
+  formData.class_id = undefined
   classes.value = []
   if (formData.school_id) {
     loadClasses(formData.school_id)
   }
 }
 
+// 用户选择
+function handleUserSelect(user: User) {
+  selectedUser.value = user
+  formData.user_id = user.id
+  userSelectVisible.value = false
+}
+
 // 重置表单
 function resetForm() {
   formData.user_id = 0
-  formData.class_id = 0
+  formData.class_id = undefined
   formData.school_id = undefined
+  selectedUser.value = null
   classes.value = []
-  formRef.value?.clearValidate()
+  clearErrors()
 }
 
 // 提交表单
@@ -159,16 +189,23 @@ async function handleSubmit() {
     await formRef.value.validate()
     loading.value = true
 
-    await createStudent({
+    const result = await createStudent({
       user_id: formData.user_id,
       class_id: formData.class_id
     })
-    ElMessage.success('添加成功')
+    
+    // 显示成功消息，包含自动加入的小组信息
+    if (result.auto_joined_groups && result.auto_joined_groups.length > 0) {
+      const groupNames = result.auto_joined_groups.map((g: { id: number; name: string }) => g.name).join('、')
+      ElMessage.success(`添加成功！学生已自动加入 ${result.auto_joined_groups.length} 个小组：${groupNames}`)
+    } else {
+      ElMessage.success('添加成功')
+    }
 
     emit('success')
     resetForm()
-  } catch (error: any) {
-    if (error !== false) {
+  } catch (error: unknown) {
+    if (error !== false && !applyErrors(error)) {
       ElMessage.error('添加失败')
       console.error(error)
     }
@@ -183,15 +220,13 @@ function handleCancel() {
   emit('update:visible', false)
 }
 
-onMounted(() => {
-  loadSchools()
+// 监听对话框打开，延迟加载学校列表避免与列表页重复请求
+watch(() => props.visible, (newVal) => {
+  if (newVal) {
+    loadSchools()
+  }
 })
 </script>
 
 <style scoped>
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
 </style>

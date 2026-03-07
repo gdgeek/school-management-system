@@ -46,11 +46,13 @@ class ClassRepository
         return $row ? EduClass::fromArray($row) : null;
     }
 
-    public function findBySchoolId(int $schoolId): array
+    public function findBySchoolId(int $schoolId, int $limit = 20, int $offset = 0): array
     {
-        $sql = "SELECT * FROM edu_class WHERE school_id = :school_id ORDER BY created_at DESC";
+        $sql = "SELECT * FROM edu_class WHERE school_id = :school_id ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':school_id', $schoolId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         
         $classes = [];
@@ -59,6 +61,15 @@ class ClassRepository
         }
         
         return $classes;
+    }
+
+    public function countBySchoolId(int $schoolId): int
+    {
+        $sql = "SELECT COUNT(*) FROM edu_class WHERE school_id = :school_id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':school_id', $schoolId, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
     }
 
     public function create(EduClass $class): int
@@ -99,5 +110,12 @@ class ClassRepository
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         
         return $stmt->execute();
+    }
+
+    public function count(): int
+    {
+        $sql = "SELECT COUNT(*) FROM edu_class";
+        $stmt = $this->pdo->query($sql);
+        return (int)$stmt->fetchColumn();
     }
 }

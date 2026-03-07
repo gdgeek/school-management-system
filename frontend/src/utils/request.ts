@@ -12,7 +12,20 @@ export interface ApiResponse<T = any> {
   code: number
   message: string
   data: T
+  errors?: Record<string, string>
   timestamp?: number
+}
+
+// 带字段错误的 API 错误类
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly errors?: Record<string, string>
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
 // 分页响应接口
@@ -141,7 +154,7 @@ service.interceptors.request.use(
     // Inject JWT token
     const token = localStorage.getItem('access_token')
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token.replace(/\s+/g, '')}`
     }
 
     // Check response cache for GET requests
@@ -252,7 +265,11 @@ service.interceptors.response.use(
 
     if (status === 403) ElMessage.error(data?.message || 'Access denied.')
     if (status === 404) ElMessage.error(data?.message || 'Resource not found.')
-    if (status === 422) ElMessage.error(data?.message || 'Validation failed.')
+    if (status === 422) {
+      // 显示通用消息，但把字段级 errors 附加到 ApiError 供表单消费
+      ElMessage.error(data?.message || 'Validation failed.')
+      return Promise.reject(new ApiError(data?.message || 'Validation failed', 422, data?.errors))
+    }
     if (status >= 500) ElMessage.error('Server error. Please try again later.')
 
     return Promise.reject(error)

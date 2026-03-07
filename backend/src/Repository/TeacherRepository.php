@@ -116,4 +116,11 @@ class TeacherRepository
         
         return $stmt->execute();
     }
+
+    public function count(): int
+    {
+        $sql = "SELECT COUNT(*) FROM edu_teacher";
+        $stmt = $this->pdo->query($sql);
+        return (int)$stmt->fetchColumn();
+    }
 }

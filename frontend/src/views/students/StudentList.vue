@@ -57,12 +57,53 @@
 
       <DataTable
         :data="students"
-        :columns="columns"
         :loading="loading"
         :pagination="pagination"
         @page-change="handlePageChange"
-        @delete="handleDelete"
-      />
+      >
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column label="学生姓名" min-width="150">
+          <template #default="{ row }">
+            {{ row.user?.nickname || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="用户名" min-width="150">
+          <template #default="{ row }">
+            {{ row.user?.username || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="所属班级" min-width="150">
+          <template #default="{ row }">
+            {{ row.class?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="所属学校" min-width="150">
+          <template #default="{ row }">
+            {{ row.school?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="所属小组" min-width="200">
+          <template #default="{ row }">
+            <div v-if="row.groups && row.groups.length > 0" class="groups-cell">
+              <el-tag
+                v-for="group in row.groups"
+                :key="group.id"
+                size="small"
+                class="group-tag"
+                @click="handleGroupClick(group.id)"
+              >
+                {{ group.name }}
+              </el-tag>
+            </div>
+            <span v-else class="no-groups">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </DataTable>
     </el-card>
 
     <StudentForm
@@ -76,6 +117,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import StudentForm from './StudentForm.vue'
@@ -85,6 +127,8 @@ import { getClasses } from '@/api/class'
 import type { Student } from '@/types/student'
 import type { School } from '@/types/school'
 import type { Class } from '@/types/class'
+
+const router = useRouter()
 
 // 搜索表单
 const searchForm = reactive({
@@ -104,32 +148,13 @@ const pagination = reactive({
   total: 0
 })
 
-// 表格列配置
-const columns = [
-  { prop: 'id', label: 'ID', width: 80 },
-  {
-    prop: 'user',
-    label: '学生姓名',
-    minWidth: 150,
-    formatter: (row: Student) => row.user?.nickname || '-'
-  },
-  {
-    prop: 'user.username',
-    label: '用户名',
-    minWidth: 150,
-    formatter: (row: Student) => row.user?.username || '-'
-  },
-  {
-    prop: 'class',
-    label: '所属班级',
-    minWidth: 150,
-    formatter: (row: Student) => row.class?.name || '-'
-  },
-  { prop: 'created_at', label: '添加时间', width: 180 }
-]
-
 // 表单相关
 const formVisible = ref(false)
+
+// 跳转到小组详情
+function handleGroupClick(groupId: number) {
+  router.push(`/groups/${groupId}`)
+}
 
 // 加载学校列表
 async function loadSchools() {
@@ -172,7 +197,7 @@ async function loadStudents() {
     loading.value = true
     const response = await getStudents({
       page: pagination.page,
-      page_size: pagination.pageSize,
+      pageSize: pagination.pageSize,
       search: searchForm.search || undefined,
       class_id: searchForm.class_id,
       school_id: searchForm.school_id
@@ -253,5 +278,25 @@ onMounted(() => {
 <style scoped>
 .student-list {
   padding: 20px;
+}
+
+.groups-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.group-tag {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.group-tag:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.no-groups {
+  color: #909399;
 }
 </style>

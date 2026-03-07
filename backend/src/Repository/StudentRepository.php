@@ -95,4 +95,11 @@ class StudentRepository
         $stmt->bindValue(':class_id', $classId, PDO::PARAM_INT);
         return $stmt->execute();
     }
+
+    public function count(): int
+    {
+        $sql = "SELECT COUNT(*) FROM edu_student";
+        $stmt = $this->pdo->query($sql);
+        return (int)$stmt->fetchColumn();
+    }
 }

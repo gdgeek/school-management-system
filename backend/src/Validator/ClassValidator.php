@@ -37,15 +37,11 @@ class ClassValidator
             $this->validator->integerRange((int)$data['school_id'], 'school_id', 1);
         }
 
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
-        }
-
-        // 验证info（可选）
+        // 验证info（可选，允许字符串或数组）
         if (isset($data['info']) && $data['info'] !== null) {
-            $this->validator->isArray($data['info'], 'info');
+            if (!is_array($data['info']) && !is_string($data['info'])) {
+                $this->validator->isArray($data['info'], 'info');
+            }
         }
 
         return $this->validator->getErrors();
@@ -69,15 +65,11 @@ class ClassValidator
             $this->validator->integerRange((int)$data['school_id'], 'school_id', 1);
         }
 
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
-        }
-
-        // 验证info（可选）
+        // 验证info（可选，允许字符串或数组）
         if (isset($data['info']) && $data['info'] !== null) {
-            $this->validator->isArray($data['info'], 'info');
+            if (!is_array($data['info']) && !is_string($data['info'])) {
+                $this->validator->isArray($data['info'], 'info');
+            }
         }
 
         return $this->validator->getErrors();

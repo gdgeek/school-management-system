@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Contract\RedisInterface;
 use App\Repository\UserRepository;
-use Redis;
 
 /**
  * 认证服务
@@ -14,10 +14,10 @@ use Redis;
 class AuthService
 {
     private UserRepository $userRepository;
-    private Redis $redis;
+    private RedisInterface $redis;
     private int $sessionTtl = 86400; // 24小时
 
-    public function __construct(UserRepository $userRepository, Redis $redis)
+    public function __construct(UserRepository $userRepository, RedisInterface $redis)
     {
         $this->userRepository = $userRepository;
         $this->redis = $redis;
@@ -39,7 +39,9 @@ class AuthService
         }
 
         // 验证密码（假设使用password_hash存储）
-        if (!password_verify($password, $user['password'] ?? '')) {
+        // UserRepository returns 'password_hash' field
+        $passwordHash = $user['password_hash'] ?? $user['password'] ?? '';
+        if (!password_verify($password, $passwordHash)) {
             return null;
         }
 

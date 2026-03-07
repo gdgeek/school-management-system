@@ -125,7 +125,12 @@ const columns = [
     minWidth: 150,
     formatter: (row: Teacher) => row.class?.name || '-'
   },
-  { prop: 'created_at', label: '添加时间', width: 180 }
+  {
+    prop: 'school',
+    label: '所属学校',
+    minWidth: 150,
+    formatter: (row: Teacher) => row.school?.name || '-'
+  }
 ]
 
 // 表单相关
@@ -172,7 +177,7 @@ async function loadTeachers() {
     loading.value = true
     const response = await getTeachers({
       page: pagination.page,
-      page_size: pagination.pageSize,
+      pageSize: pagination.pageSize,
       search: searchForm.search || undefined,
       class_id: searchForm.class_id,
       school_id: searchForm.school_id

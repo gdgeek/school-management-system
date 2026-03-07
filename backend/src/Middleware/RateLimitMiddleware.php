@@ -4,151 +4,173 @@ declare(strict_types=1);
 
 namespace App\Middleware;
 
+use App\Contract\RedisInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
-use Redis;
 
 /**
- * 请求频率限制中间件
- * 使用Redis实现分布式限流
+ * Rate Limiting Middleware
+ *
+ * Implements a sliding window counter using Redis to limit request rates.
+ *
+ * Key format: rate_limit:{ip}:{window_start}
+ * Default limits: 100 req/min general, 10 req/min for login endpoint.
+ *
+ * Response headers added to every response:
+ *   X-RateLimit-Limit     – max requests allowed in the window
+ *   X-RateLimit-Remaining – remaining requests in the current window
+ *   X-RateLimit-Reset     – Unix timestamp when the window resets
+ *
+ * On 429 Too Many Requests, an additional header is added:
+ *   Retry-After – seconds until the window resets
  */
 class RateLimitMiddleware implements MiddlewareInterface
 {
+    private const KEY_PREFIX = 'rate_limit:';
+
     private int $maxRequests;
     private int $windowSeconds;
-    private string $prefix = 'rate_limit:';
 
     public function __construct(
+        private RedisInterface $redis,
         private ResponseFactoryInterface $responseFactory,
-        private Redis $redis,
         ?array $config = null
     ) {
         $config = $config ?? [];
-        $this->maxRequests = $config['maxRequests'] ?? 100;
-        $this->windowSeconds = $config['windowSeconds'] ?? 60;
+        $this->maxRequests   = $config['max_requests']   ?? (int)($_ENV['RATE_LIMIT_REQUESTS'] ?? 100);
+        $this->windowSeconds = $config['window_seconds'] ?? (int)($_ENV['RATE_LIMIT_WINDOW']   ?? 60);
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $key = $this->getRateLimitKey($request);
-        
-        // 获取当前请求计数
-        $current = $this->getCurrentCount($key);
-        
-        // 检查是否超过限制
-        if ($current >= $this->maxRequests) {
-            return $this->createRateLimitResponse($current);
+        $ip          = $this->resolveClientIp($request);
+        $windowStart = $this->currentWindowStart();
+        $resetAt     = $windowStart + $this->windowSeconds;
+        // Hash the IP to avoid Redis key collisions with IPv6 addresses (which
+        // contain colons) and to keep key lengths predictable.
+        $cacheKey    = self::KEY_PREFIX . md5($ip) . ':' . $windowStart;
+
+        // Increment counter atomically; set TTL on first hit
+        $count = $this->redis->incrBy($cacheKey, 1);
+        if ($count === 1) {
+            // First request in this window — set expiry so Redis cleans up automatically
+            $this->redis->expire($cacheKey, $this->windowSeconds * 2);
         }
 
-        // 增加计数
-        $this->incrementCount($key);
-        
-        // 处理请求
+        $remaining = max(0, $this->maxRequests - $count);
+
+        if ($count > $this->maxRequests) {
+            $retryAfter = $resetAt - time();
+            $response   = $this->buildTooManyRequestsResponse($retryAfter);
+            return $this->addRateLimitHeaders($response, $this->maxRequests, 0, $resetAt)
+                        ->withHeader('Retry-After', (string)max(0, $retryAfter));
+        }
+
         $response = $handler->handle($request);
-        
-        // 添加速率限制响应头
-        return $this->addRateLimitHeaders($response, $current + 1);
+        return $this->addRateLimitHeaders($response, $this->maxRequests, $remaining, $resetAt);
     }
 
-    /**
-     * 获取速率限制键
-     */
-    private function getRateLimitKey(ServerRequestInterface $request): string
-    {
-        // 优先使用用户ID，其次使用IP地址
-        $userId = $request->getAttribute('user_id');
-        
-        if ($userId) {
-            return $this->prefix . 'user:' . $userId;
-        }
-
-        $ip = $this->getClientIp($request);
-        return $this->prefix . 'ip:' . $ip;
-    }
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
     /**
-     * 获取客户端IP地址
+     * Resolve the client IP address from the request.
+     *
+     * Security note: X-Forwarded-For and X-Real-IP are client-controlled headers
+     * and can be spoofed. They are only trusted when the application is deployed
+     * behind a known reverse proxy. Each extracted IP is validated with
+     * filter_var() to reject malformed or private-range spoofing attempts.
+     *
+     * Priority: X-Forwarded-For → X-Real-IP → REMOTE_ADDR (server params).
      */
-    private function getClientIp(ServerRequestInterface $request): string
+    public function resolveClientIp(ServerRequestInterface $request): string
     {
-        $serverParams = $request->getServerParams();
-        
-        // 检查代理头
-        if (!empty($serverParams['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $serverParams['HTTP_X_FORWARDED_FOR']);
-            return trim($ips[0]);
-        }
-        
-        if (!empty($serverParams['HTTP_X_REAL_IP'])) {
-            return $serverParams['HTTP_X_REAL_IP'];
-        }
-        
-        return $serverParams['REMOTE_ADDR'] ?? '0.0.0.0';
-    }
-
-    /**
-     * 获取当前请求计数
-     */
-    private function getCurrentCount(string $key): int
-    {
-        try {
-            $count = $this->redis->get($key);
-            return $count !== false ? (int)$count : 0;
-        } catch (\Exception $e) {
-            // Redis失败时不限流
-            return 0;
-        }
-    }
-
-    /**
-     * 增加请求计数
-     */
-    private function incrementCount(string $key): void
-    {
-        try {
-            $current = $this->redis->incr($key);
-            
-            // 首次请求时设置过期时间
-            if ($current === 1) {
-                $this->redis->expire($key, $this->windowSeconds);
+        // X-Forwarded-For may contain a comma-separated list; take the first entry
+        $forwarded = $request->getHeaderLine('X-Forwarded-For');
+        if ($forwarded !== '') {
+            $parts = explode(',', $forwarded);
+            $ip    = trim($parts[0]);
+            if ($ip !== '' && $this->isValidIp($ip)) {
+                return $ip;
             }
-        } catch (\Exception $e) {
-            // 忽略Redis错误
         }
+
+        $realIp = $request->getHeaderLine('X-Real-IP');
+        if ($realIp !== '') {
+            $ip = trim($realIp);
+            if ($this->isValidIp($ip)) {
+                return $ip;
+            }
+        }
+
+        $serverParams = $request->getServerParams();
+        $remoteAddr   = $serverParams['REMOTE_ADDR'] ?? '127.0.0.1';
+        return $this->isValidIp($remoteAddr) ? $remoteAddr : '127.0.0.1';
     }
 
     /**
-     * 创建速率限制响应
+     * Return true if the given string is a syntactically valid IPv4 or IPv6 address.
      */
-    private function createRateLimitResponse(int $current): ResponseInterface
+    private function isValidIp(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP) !== false;
+    }
+
+    /**
+     * Return the Unix timestamp of the start of the current window.
+     */
+    public function currentWindowStart(): int
+    {
+        return (int)(floor(time() / $this->windowSeconds) * $this->windowSeconds);
+    }
+
+    /**
+     * Add standard rate-limit headers to a response.
+     */
+    private function addRateLimitHeaders(
+        ResponseInterface $response,
+        int $limit,
+        int $remaining,
+        int $reset
+    ): ResponseInterface {
+        return $response
+            ->withHeader('X-RateLimit-Limit',     (string)$limit)
+            ->withHeader('X-RateLimit-Remaining', (string)$remaining)
+            ->withHeader('X-RateLimit-Reset',     (string)$reset);
+    }
+
+    /**
+     * Build a 429 Too Many Requests JSON response.
+     */
+    private function buildTooManyRequestsResponse(int $retryAfter): ResponseInterface
     {
         $response = $this->responseFactory->createResponse(429);
-        
-        $body = [
-            'code' => 429,
-            'message' => 'Too many requests',
+        $body     = json_encode([
+            'code'      => 429,
+            'message'   => 'Too Many Requests',
+            'data'      => null,
             'timestamp' => time(),
-        ];
-        
-        $response->getBody()->write(json_encode($body));
-        
-        return $this->addRateLimitHeaders(
-            $response->withHeader('Content-Type', 'application/json'),
-            $current
-        );
+        ]);
+
+        $response->getBody()->write($body);
+        return $response->withHeader('Content-Type', 'application/json');
     }
 
-    /**
-     * 添加速率限制响应头
-     */
-    private function addRateLimitHeaders(ResponseInterface $response, int $current): ResponseInterface
+    // -------------------------------------------------------------------------
+    // Accessors (used in tests / DI factory)
+    // -------------------------------------------------------------------------
+
+    public function getMaxRequests(): int
     {
-        return $response
-            ->withHeader('X-RateLimit-Limit', (string)$this->maxRequests)
-            ->withHeader('X-RateLimit-Remaining', (string)max(0, $this->maxRequests - $current))
-            ->withHeader('X-RateLimit-Reset', (string)($this->windowSeconds));
+        return $this->maxRequests;
+    }
+
+    public function getWindowSeconds(): int
+    {
+        return $this->windowSeconds;
     }
 }

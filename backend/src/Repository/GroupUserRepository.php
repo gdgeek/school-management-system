@@ -75,4 +75,57 @@ class GroupUserRepository
         $stmt->bindValue(':group_id', $groupId, PDO::PARAM_INT);
         return $stmt->execute();
     }
+
+    /**
+     * 批量添加用户到多个小组
+     * 使用批量 INSERT 语句减少数据库往返
+     * 检查成员是否已存在（幂等性）
+     * 
+     * @param int $userId 用户ID
+     * @param array $groupIds 小组ID数组
+     * @return int 实际添加的记录数
+     */
+    public function addStudentToGroups(int $userId, array $groupIds): int
+    {
+        if (empty($groupIds)) {
+            return 0;
+        }
+
+        // 过滤出用户尚未加入的小组
+        $groupsToAdd = [];
+        foreach ($groupIds as $groupId) {
+            if (!$this->exists($userId, $groupId)) {
+                $groupsToAdd[] = (int)$groupId;
+            }
+        }
+
+        if (empty($groupsToAdd)) {
+            return 0;
+        }
+
+        // 构建批量 INSERT 语句
+        $values = [];
+        $params = [];
+        $paramIndex = 0;
+        
+        foreach ($groupsToAdd as $groupId) {
+            $userParam = ":user_id_$paramIndex";
+            $groupParam = ":group_id_$paramIndex";
+            $values[] = "($userParam, $groupParam)";
+            $params[$userParam] = $userId;
+            $params[$groupParam] = $groupId;
+            $paramIndex++;
+        }
+
+        $sql = "INSERT INTO group_user (user_id, group_id) VALUES " . implode(', ', $values);
+        $stmt = $this->pdo->prepare($sql);
+        
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value, PDO::PARAM_INT);
+        }
+        
+        $stmt->execute();
+        
+        return count($groupsToAdd);
+    }
 }

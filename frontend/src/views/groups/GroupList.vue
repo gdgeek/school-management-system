@@ -168,12 +168,12 @@ function handleViewDetail(group: Group) {
 async function handleDelete(group: Group) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除小组"${group.name}"吗？`,
+      `确定要删除小组"${group.name}"吗？删除小组将同时删除所有关联的班级！`,
       '删除确认',
       {
-        confirmButtonText: '确定',
+        confirmButtonText: '确定删除',
         cancelButtonText: '取消',
-        type: 'warning'
+        type: 'error'
       }
     )
     

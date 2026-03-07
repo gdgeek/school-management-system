@@ -1,8 +1,8 @@
 <template>
   <div class="login-container">
     <el-card class="login-card">
-      <h2>学校管理系统</h2>
-      <p class="subtitle">School Management System</p>
+      <h2>{{ $t('auth.systemTitle') }}</h2>
+      <p class="subtitle">{{ $t('auth.systemSubtitle') }}</p>
       
       <el-alert
         v-if="errorMessage"
@@ -12,29 +12,23 @@
         style="margin-bottom: 20px"
       />
 
-      <el-form
-        ref="formRef"
-        :model="loginForm"
-        :rules="rules"
-        @submit.prevent="handleLogin"
-      >
-        <el-form-item prop="username">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="用户名"
-            size="large"
-            prefix-icon="User"
-          />
-        </el-form-item>
+      <el-alert
+        v-if="verifying"
+        :title="$t('auth.verifying')"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
 
-        <el-form-item prop="password">
+      <!-- Token 输入模式 -->
+      <el-form @submit.prevent="handleTokenLogin" v-if="!verifying">
+        <el-form-item>
           <el-input
-            v-model="loginForm.password"
-            type="password"
-            placeholder="密码"
+            v-model="tokenInput"
+            :placeholder="$t('auth.tokenPlaceholder')"
             size="large"
-            prefix-icon="Lock"
-            @keyup.enter="handleLogin"
+            type="textarea"
+            :rows="3"
           />
         </el-form-item>
 
@@ -43,84 +37,148 @@
           size="large"
           :loading="loading"
           style="width: 100%"
-          @click="handleLogin"
+          @click="handleTokenLogin"
         >
-          登录
+          {{ $t('auth.tokenLogin') }}
         </el-button>
       </el-form>
 
+      <el-divider>{{ $t('auth.or') }}</el-divider>
+
+      <el-button
+        size="large"
+        style="width: 100%"
+        @click="goToMainSystem"
+      >
+        {{ $t('auth.goToMainSystem') }}
+      </el-button>
+
       <div class="tips">
-        <p>提示：本系统使用统一认证，请从主系统跳转访问</p>
+        <p>{{ $t('auth.tips1') }}</p>
+        <p>{{ $t('auth.tips2') }}</p>
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { setToken, setUserInfo } from '@/utils/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const formRef = ref<FormInstance>()
 const loading = ref(false)
+const verifying = ref(false)
 const errorMessage = ref('')
+const tokenInput = ref('')
 
-const loginForm = reactive({
-  username: '',
-  password: ''
-})
-
-const rules: FormRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' }
-  ]
-}
-
-async function handleLogin() {
-  if (!formRef.value) return
+/**
+ * 手动输入 token 登录
+ */
+async function handleTokenLogin() {
+  const token = tokenInput.value.trim()
+  if (!token) {
+    ElMessage.warning(t('auth.tokenRequired'))
+    return
+  }
 
   try {
-    await formRef.value.validate()
     loading.value = true
     errorMessage.value = ''
 
-    // 这里应该调用登录API，但由于使用统一认证，暂时不实现
-    ElMessage.warning('请从主系统跳转访问')
+    // 直接存储 token，然后尝试获取用户信息
+    setToken(token.trim())
+    authStore.token = token.trim()
+
+    try {
+      // 尝试用 token 获取用户信息
+      await authStore.fetchUserInfo()
+      ElMessage.success(t('auth.loginSuccess'))
+      const redirect = (route.query.redirect as string) || '/'
+      router.replace(redirect)
+    } catch {
+      // 如果获取用户信息失败，token 可能格式正确但后端没有 /auth/user 接口
+      // 先解析 JWT payload 作为基本用户信息
+      const payload = parseJwtPayload(token)
+      if (payload && payload.user_id) {
+        const user = {
+          id: payload.user_id,
+          username: payload.username || 'user',
+          nickname: payload.username || 'User',
+          roles: payload.roles || ['user'],
+        }
+        setUserInfo(user)
+        authStore.user = user
+        ElMessage.success(t('auth.tokenVerifySuccess'))
+        const redirect = (route.query.redirect as string) || '/'
+        router.replace(redirect)
+      } else {
+        errorMessage.value = t('auth.tokenInvalid')
+        authStore.logout()
+      }
+    }
   } catch (error) {
-    console.error('登录失败:', error)
+    errorMessage.value = t('auth.verifyFailed')
+    console.error(error)
   } finally {
     loading.value = false
   }
 }
 
-// 检查是否有会话令牌
+/**
+ * 解析 JWT payload（不验证签名，仅客户端解码）
+ */
+function parseJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1]))
+    // 检查是否过期
+    if (payload.exp && payload.exp < Date.now() / 1000) {
+      return null
+    }
+    return payload
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 跳转到主系统
+ */
+function goToMainSystem() {
+  const mainSystemUrl = import.meta.env.VITE_MAIN_SYSTEM_URL || '/'
+  window.location.href = mainSystemUrl
+}
+
+/**
+ * 检查 URL 中的会话令牌
+ */
 async function checkSessionToken() {
-  const token = route.query.token as string
+  const token = (route.query.token as string) || (route.query.session_token as string)
   if (token) {
     try {
-      loading.value = true
+      verifying.value = true
       const success = await authStore.verifySession(token)
       if (success) {
-        ElMessage.success('登录成功')
-        const redirect = route.query.redirect as string || '/'
+        ElMessage.success(t('auth.loginSuccess'))
+        const redirect = (route.query.redirect as string) || '/'
         router.replace(redirect)
       } else {
-        errorMessage.value = '会话验证失败，请重新登录'
+        errorMessage.value = t('auth.sessionVerifyFailed')
       }
     } catch (error) {
-      errorMessage.value = '会话验证失败，请重新登录'
+      errorMessage.value = t('auth.verifyFailed')
       console.error(error)
     } finally {
-      loading.value = false
+      verifying.value = false
     }
   }
 }
@@ -140,7 +198,7 @@ onMounted(() => {
 }
 
 .login-card {
-  width: 400px;
+  width: 440px;
   padding: 20px;
 }
 
@@ -159,12 +217,12 @@ onMounted(() => {
 }
 
 .tips {
-  margin-top: 20px;
+  margin-top: 16px;
   text-align: center;
 }
 
 .tips p {
-  margin: 0;
+  margin: 4px 0;
   font-size: 12px;
   color: #909399;
 }

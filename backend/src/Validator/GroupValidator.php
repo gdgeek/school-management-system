@@ -34,12 +34,6 @@ class GroupValidator
             $this->validator->stringLength($data['description'], 'description', 0, 1000);
         }
 
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
-        }
-
         // 验证info（可选）
         if (isset($data['info']) && $data['info'] !== null) {
             $this->validator->isArray($data['info'], 'info');
@@ -63,12 +57,6 @@ class GroupValidator
         // 验证description（可选）
         if (isset($data['description']) && $data['description'] !== null) {
             $this->validator->stringLength($data['description'], 'description', 0, 1000);
-        }
-
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
         }
 
         // 验证info（可选）

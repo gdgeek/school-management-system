@@ -23,8 +23,8 @@ class School
 {
     public int $id;
     public ?string $name = null;
-    public DateTime $created_at;
-    public DateTime $updated_at;
+    public ?DateTime $created_at = null;
+    public ?DateTime $updated_at = null;
     public ?int $image_id = null;
     public ?array $info = null;
     public ?int $principal_id = null;
@@ -94,6 +94,10 @@ class School
         if (isset($data['principal_id'])) {
             $model->principal_id = (int)$data['principal_id'];
         }
+        // DB column is 'principal', map to principal_id
+        if (isset($data['principal'])) {
+            $model->principal_id = (int)$data['principal'];
+        }
         
         return $model;
     }
@@ -106,8 +110,8 @@ class School
         return [
             'id' => $this->id ?? null,
             'name' => $this->name,
-            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
             'image_id' => $this->image_id,
             'info' => $this->info,
             'principal_id' => $this->principal_id,

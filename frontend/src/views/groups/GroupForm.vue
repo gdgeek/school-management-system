@@ -21,13 +21,6 @@
         />
       </el-form-item>
 
-      <el-form-item label="小组图片" prop="image_id">
-        <ImageUpload
-          v-model="formData.image_id"
-          :image-url="imageUrl"
-        />
-      </el-form-item>
-
       <el-form-item label="小组描述" prop="description">
         <el-input
           v-model="formData.description"
@@ -58,9 +51,9 @@ import { ref, reactive, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import FormDialog from '@/components/common/FormDialog.vue'
-import ImageUpload from '@/components/common/ImageUpload.vue'
 import { createGroup, updateGroup } from '@/api/group'
 import type { Group, GroupFormData } from '@/types/group'
+import { useFormErrors } from '@/composables/useFormErrors'
 
 interface Props {
   visible: boolean
@@ -85,15 +78,13 @@ const dialogVisible = computed({
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const { applyErrors, clearErrors } = useFormErrors(formRef)
 
 const formData = reactive<GroupFormData>({
   name: '',
   description: '',
-  image_id: undefined,
   info: ''
 })
-
-const imageUrl = ref<string>()
 
 const rules: FormRules = {
   name: [
@@ -109,9 +100,7 @@ watch(
     if (group && props.mode === 'edit') {
       formData.name = group.name
       formData.description = group.description || ''
-      formData.image_id = group.image_id
       formData.info = group.info || ''
-      imageUrl.value = group.image_url
     } else {
       resetForm()
     }
@@ -123,10 +112,8 @@ watch(
 function resetForm() {
   formData.name = ''
   formData.description = ''
-  formData.image_id = undefined
   formData.info = ''
-  imageUrl.value = undefined
-  formRef.value?.clearValidate()
+  clearErrors()
 }
 
 // 提交表单
@@ -147,8 +134,8 @@ async function handleSubmit() {
 
     emit('success')
     resetForm()
-  } catch (error: any) {
-    if (error !== false) {
+  } catch (error: unknown) {
+    if (error !== false && !applyErrors(error)) {
       ElMessage.error(props.mode === 'create' ? '创建失败' : '更新失败')
       console.error(error)
     }

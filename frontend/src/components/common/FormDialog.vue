@@ -1,23 +1,16 @@
 <template>
   <el-dialog
-    v-model="visible"
+    v-model="dialogVisible"
     :title="title"
     :width="width"
     :close-on-click-modal="false"
     @close="handleClose"
   >
-    <el-form
-      ref="formRef"
-      :model="formData"
-      :rules="rules"
-      :label-width="labelWidth"
-    >
-      <slot :form="formData"></slot>
-    </el-form>
+    <slot></slot>
     
     <template #footer>
-      <el-button @click="handleCancel">Cancel</el-button>
-      <el-button type="primary" :loading="loading" @click="handleSubmit">
+      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="primary" :loading="loading" @click="handleConfirm">
         {{ submitText }}
       </el-button>
     </template>
@@ -25,67 +18,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import { computed } from 'vue'
 
 interface Props {
-  modelValue: boolean
+  visible?: boolean
+  modelValue?: boolean
   title: string
-  formData: Record<string, any>
-  rules?: FormRules
   width?: string | number
-  labelWidth?: string | number
   submitText?: string
   loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  visible: undefined,
+  modelValue: undefined,
   width: '600px',
-  labelWidth: '100px',
-  submitText: 'Submit',
+  submitText: '确定',
   loading: false
 })
 
 const emit = defineEmits<{
+  'update:visible': [value: boolean]
   'update:modelValue': [value: boolean]
-  submit: [data: Record<string, any>]
+  confirm: []
   cancel: []
+  submit: []
 }>()
 
-const visible = ref(props.modelValue)
-const formRef = ref<FormInstance>()
-
-watch(() => props.modelValue, (val) => {
-  visible.value = val
-})
-
-watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
-
-async function handleSubmit() {
-  if (!formRef.value) return
-  
-  try {
-    await formRef.value.validate()
-    emit('submit', props.formData)
-  } catch (error) {
-    console.error('Form validation failed:', error)
+// 支持 v-model:visible 和 v-model 两种用法
+const dialogVisible = computed({
+  get: () => props.visible ?? props.modelValue ?? false,
+  set: (val: boolean) => {
+    emit('update:visible', val)
+    emit('update:modelValue', val)
   }
+})
+
+function handleConfirm() {
+  emit('confirm')
+  emit('submit')
 }
 
 function handleCancel() {
-  visible.value = false
+  dialogVisible.value = false
   emit('cancel')
 }
 
 function handleClose() {
-  formRef.value?.resetFields()
   emit('cancel')
 }
-
-defineExpose({
-  resetFields: () => formRef.value?.resetFields(),
-  validate: () => formRef.value?.validate()
-})
 </script>

@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 class JwtHelperTest extends TestCase
 {
     private JwtHelper $jwt;
-    private string $secret = 'test-secret-key-for-unit-tests-only';
+    private string $secret = 'test-secret-key-for-unit-tests-only-32chars';
 
     protected function setUp(): void
     {
@@ -59,7 +59,7 @@ class JwtHelperTest extends TestCase
     public function testVerifyThrowsOnWrongSecret(): void
     {
         $token = $this->jwt->generate(['user_id' => 1]);
-        $otherJwt = new JwtHelper('different-secret', 3600);
+        $otherJwt = new JwtHelper('different-secret-key-32chars-min!', 3600);
 
         $this->expectException(UnauthorizedException::class);
         $otherJwt->verify($token);
@@ -107,6 +107,8 @@ class JwtHelperTest extends TestCase
     public function testRefreshGeneratesNewToken(): void
     {
         $original = $this->jwt->generate(['user_id' => 1, 'roles' => ['admin']]);
+        // Sleep 1 second so iat/exp differ, guaranteeing a different token string
+        sleep(1);
         $refreshed = $this->jwt->refresh($original);
 
         $this->assertNotSame($original, $refreshed);
@@ -132,5 +134,41 @@ class JwtHelperTest extends TestCase
     public function testIsExpiringSoonReturnsTrueForInvalidToken(): void
     {
         $this->assertTrue($this->jwt->isExpiringSoon('invalid-token'));
+    }
+
+    // ── Secret key strength ───────────────────────────────────────────────────
+
+    public function testConstructorRejectsShortSecret(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('32 characters');
+        new JwtHelper('short-key', 3600);
+    }
+
+    public function testConstructorAcceptsExactly32CharSecret(): void
+    {
+        $jwt = new JwtHelper(str_repeat('a', 32), 3600);
+        $this->assertInstanceOf(JwtHelper::class, $jwt);
+    }
+
+    public function testConstructorAcceptsLongSecret(): void
+    {
+        $jwt = new JwtHelper(str_repeat('x', 64), 3600);
+        $this->assertInstanceOf(JwtHelper::class, $jwt);
+    }
+
+    // ── Error message does not leak internals ─────────────────────────────────
+
+    public function testVerifyDoesNotLeakInternalExceptionMessage(): void
+    {
+        try {
+            $this->jwt->verify('bad.token.value');
+            $this->fail('Expected UnauthorizedException');
+        } catch (UnauthorizedException $e) {
+            // Must not contain raw exception details
+            $this->assertStringNotContainsString('Exception', $e->getMessage());
+            $this->assertStringNotContainsString('firebase', strtolower($e->getMessage()));
+            $this->assertSame('Invalid token', $e->getMessage());
+        }
     }
 }

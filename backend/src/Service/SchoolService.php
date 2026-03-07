@@ -10,6 +10,8 @@ use App\Repository\TeacherRepository;
 use App\Repository\StudentRepository;
 use App\Model\School;
 use App\Helper\DatabaseHelper;
+use App\Exception\NotFoundException;
+use App\Exception\ValidationException;
 
 /**
  * 学校管理服务
@@ -54,12 +56,12 @@ class SchoolService
     /**
      * 获取学校详情
      */
-    public function getById(int $id): ?array
+    public function getById(int $id): array
     {
         $school = $this->schoolRepository->findById($id);
         
         if (!$school) {
-            return null;
+            throw new NotFoundException("School not found: {$id}");
         }
         
         return $school->toArray();
@@ -70,10 +72,15 @@ class SchoolService
      */
     public function create(array $data): array
     {
+        if (empty($data['name'])) {
+            throw new ValidationException(['name' => 'School name is required']);
+        }
+
         $school = new School();
         $school->name = $data['name'] ?? '';
-        $school->image_id = $data['image_id'] ?? null;
-        $school->info = $data['info'] ?? [];
+        $school->image_id = null;
+        $info = $data['info'] ?? null;
+        $school->info = is_string($info) ? ['description' => $info] : ($info ?? null);
         $school->principal_id = $data['principal_id'] ?? null;
         
         $id = $this->schoolRepository->create($school);
@@ -85,22 +92,20 @@ class SchoolService
     /**
      * 更新学校
      */
-    public function update(int $id, array $data): ?array
+    public function update(int $id, array $data): array
     {
         $school = $this->schoolRepository->findById($id);
         
         if (!$school) {
-            return null;
+            throw new NotFoundException("School not found: {$id}");
         }
         
         if (isset($data['name'])) {
             $school->name = $data['name'];
         }
-        if (isset($data['image_id'])) {
-            $school->image_id = $data['image_id'];
-        }
         if (isset($data['info'])) {
-            $school->info = $data['info'];
+            $info = $data['info'];
+            $school->info = is_string($info) ? ['description' => $info] : $info;
         }
         if (isset($data['principal_id'])) {
             $school->principal_id = $data['principal_id'];
@@ -114,16 +119,16 @@ class SchoolService
     /**
      * 删除学校（级联删除关联数据）
      */
-    public function delete(int $id): bool
+    public function delete(int $id): void
     {
         $school = $this->schoolRepository->findById($id);
         
         if (!$school) {
-            return false;
+            throw new NotFoundException("School not found: {$id}");
         }
         
         // 使用事务确保数据一致性
-        return $this->dbHelper->transaction(function() use ($id) {
+        $this->dbHelper->transaction(function() use ($id) {
             // 获取学校下的所有班级
             $classes = $this->classRepository->findBySchoolId($id);
             
@@ -144,6 +149,11 @@ class SchoolService
      */
     public function getClasses(int $schoolId): array
     {
+        $school = $this->schoolRepository->findById($schoolId);
+        if (!$school) {
+            throw new NotFoundException("School not found: {$schoolId}");
+        }
+
         $classes = $this->classRepository->findBySchoolId($schoolId);
         
         return array_map(fn($class) => $class->toArray(), $classes);

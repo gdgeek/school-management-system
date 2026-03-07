@@ -15,8 +15,8 @@ class EduClass
 {
     public int $id;
     public ?string $name = null;
-    public DateTime $created_at;
-    public DateTime $updated_at;
+    public ?DateTime $created_at = null;
+    public ?DateTime $updated_at = null;
     public ?int $school_id = null;
     public ?int $image_id = null;
     public ?array $info = null;
@@ -48,8 +48,8 @@ class EduClass
         return [
             'id' => $this->id ?? null,
             'name' => $this->name,
-            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
             'school_id' => $this->school_id,
             'image_id' => $this->image_id,
             'info' => $this->info,

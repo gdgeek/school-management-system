@@ -14,7 +14,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SchoolView.vue'),
     meta: {
       title: 'Schools',
-      requiresAuth: true
+      requiresAuth: false
     }
   },
   {
@@ -50,8 +50,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/TeacherView.vue'),
     meta: {
       title: 'Teachers',
-      requiresAuth: true,
-      roles: ['admin', 'school_admin']
+      requiresAuth: false
     }
   },
   {
@@ -60,8 +59,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/StudentView.vue'),
     meta: {
       title: 'Students',
-      requiresAuth: true,
-      roles: ['admin', 'school_admin', 'teacher']
+      requiresAuth: false
     }
   },
   {

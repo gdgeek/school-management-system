@@ -13,7 +13,7 @@ class GroupRepository
 
     public function findAll(int $limit = 20, int $offset = 0): array
     {
-        $sql = "SELECT * FROM \`group\` ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $sql = "SELECT * FROM `group` ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -28,7 +28,7 @@ class GroupRepository
 
     public function findById(int $id): ?Group
     {
-        $sql = "SELECT * FROM \`group\` WHERE id = :id";
+        $sql = "SELECT * FROM `group` WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
@@ -38,7 +38,7 @@ class GroupRepository
 
     public function findByUserId(int $userId): array
     {
-        $sql = "SELECT * FROM \`group\` WHERE user_id = :user_id ORDER BY created_at DESC";
+        $sql = "SELECT * FROM `group` WHERE user_id = :user_id ORDER BY created_at DESC";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
         $stmt->execute();
@@ -52,7 +52,7 @@ class GroupRepository
 
     public function search(string $keyword, int $limit = 20, int $offset = 0): array
     {
-        $sql = "SELECT * FROM \`group\` WHERE name LIKE :keyword ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $sql = "SELECT * FROM `group` WHERE name LIKE :keyword ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':keyword', "%$keyword%", PDO::PARAM_STR);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -68,7 +68,7 @@ class GroupRepository
 
     public function create(Group $group): int
     {
-        $sql = "INSERT INTO \`group\` (name, description, user_id, image_id, info, created_at, updated_at) 
+        $sql = "INSERT INTO `group` (name, description, user_id, image_id, info, created_at, updated_at) 
                 VALUES (:name, :description, :user_id, :image_id, :info, NOW(), NOW())";
         
         $stmt = $this->pdo->prepare($sql);
@@ -84,7 +84,7 @@ class GroupRepository
 
     public function update(Group $group): bool
     {
-        $sql = "UPDATE \`group\` 
+        $sql = "UPDATE `group` 
                 SET name = :name, description = :description, image_id = :image_id, info = :info, updated_at = NOW() 
                 WHERE id = :id";
         
@@ -100,7 +100,7 @@ class GroupRepository
 
     public function delete(int $id): bool
     {
-        $sql = "DELETE FROM \`group\` WHERE id = :id";
+        $sql = "DELETE FROM `group` WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
@@ -108,7 +108,7 @@ class GroupRepository
 
     public function count(): int
     {
-        $sql = "SELECT COUNT(*) FROM \`group\`";
+        $sql = "SELECT COUNT(*) FROM `group`";
         $stmt = $this->pdo->query($sql);
         return (int)$stmt->fetchColumn();
     }

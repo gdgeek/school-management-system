@@ -7,33 +7,27 @@
     >
       <el-menu-item index="/schools">
         <el-icon><School /></el-icon>
-        <template #title>Schools</template>
+        <template #title>{{ $t('nav.schools') }}</template>
       </el-menu-item>
       
       <el-menu-item index="/classes">
         <el-icon><Reading /></el-icon>
-        <template #title>Classes</template>
+        <template #title>{{ $t('nav.classes') }}</template>
       </el-menu-item>
       
-      <el-menu-item 
-        v-if="canAccessTeachers"
-        index="/teachers"
-      >
+      <el-menu-item index="/teachers">
         <el-icon><User /></el-icon>
-        <template #title>Teachers</template>
+        <template #title>{{ $t('nav.teachers') }}</template>
       </el-menu-item>
       
-      <el-menu-item 
-        v-if="canAccessStudents"
-        index="/students"
-      >
+      <el-menu-item index="/students">
         <el-icon><UserFilled /></el-icon>
-        <template #title>Students</template>
+        <template #title>{{ $t('nav.students') }}</template>
       </el-menu-item>
       
       <el-menu-item index="/groups">
         <el-icon><Tickets /></el-icon>
-        <template #title>Groups</template>
+        <template #title>{{ $t('nav.groups') }}</template>
       </el-menu-item>
     </el-menu>
   </el-aside>
@@ -43,23 +37,13 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { School, Reading, User, UserFilled, Tickets } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 
 const route = useRoute()
-const authStore = useAuthStore()
 const appStore = useAppStore()
 
 const collapsed = computed(() => appStore.sidebarCollapsed)
 const activeMenu = computed(() => route.path)
-
-const canAccessTeachers = computed(() => 
-  authStore.hasAnyRole(['admin', 'school_admin'])
-)
-
-const canAccessStudents = computed(() => 
-  authStore.hasAnyRole(['admin', 'school_admin', 'teacher'])
-)
 </script>
 
 <style scoped>

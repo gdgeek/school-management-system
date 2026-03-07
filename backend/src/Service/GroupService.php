@@ -9,10 +9,14 @@ use App\Repository\GroupUserRepository;
 use App\Repository\ClassGroupRepository;
 use App\Repository\UserRepository;
 use App\Repository\ClassRepository;
+use App\Repository\TeacherRepository;
+use App\Repository\StudentRepository;
 use App\Model\Group;
 use App\Model\GroupUser;
 use App\Model\ClassGroup;
 use App\Helper\DatabaseHelper;
+use App\Exception\NotFoundException;
+use App\Exception\ValidationException;
 
 /**
  * 小组管理服务
@@ -26,6 +30,8 @@ class GroupService
         private ClassGroupRepository $classGroupRepository,
         private UserRepository $userRepository,
         private ClassRepository $classRepository,
+        private TeacherRepository $teacherRepository,
+        private StudentRepository $studentRepository,
         private DatabaseHelper $dbHelper
     ) {}
 
@@ -56,29 +62,60 @@ class GroupService
     }
 
     /**
-     * 获取小组详情（包含成员和关联班级）
+     * 获取小组详情（包含创建者、成员和关联班级）
      */
-    public function getById(int $id): ?array
+    public function getById(int $id): array
     {
         $group = $this->groupRepository->findById($id);
         
         if (!$group) {
-            return null;
+            throw new NotFoundException("Group not found: {$id}");
         }
         
         $groupData = $group->toArray();
         
-        // 加载成员列表
+        // 加载创建者信息
+        $creator = $this->userRepository->findById($group->user_id);
+        if ($creator) {
+            $groupData['creator'] = [
+                'id' => $creator['id'],
+                'username' => $creator['username'],
+                'nickname' => $creator['nickname'],
+                'avatar' => $creator['avatar'] ?? null,
+            ];
+        } else {
+            $groupData['creator'] = null;
+        }
+        
+        // 加载成员列表（优化：批量查询避免 N+1）
         $members = $this->groupUserRepository->findByGroupId($id);
         $groupData['members'] = [];
-        foreach ($members as $member) {
-            $user = $this->userRepository->findById($member->user_id);
-            if ($user) {
-                $groupData['members'][] = [
-                    'id' => $user->id,
-                    'nickname' => $user->nickname,
-                    'avatar' => $user->avatar,
-                ];
+        
+        if (!empty($members)) {
+            // 收集所有成员的 user_id
+            $userIds = array_map(fn($member) => $member->user_id, $members);
+            $userIds = array_unique($userIds);
+            
+            // 批量查询所有用户信息（一次查询）
+            $users = $this->userRepository->findByIds($userIds);
+            
+            // 以 user_id 为 key 建立索引
+            $userMap = [];
+            foreach ($users as $user) {
+                $userMap[$user['id']] = $user;
+            }
+            
+            // 构建成员列表
+            foreach ($members as $member) {
+                if (isset($userMap[$member->user_id])) {
+                    $user = $userMap[$member->user_id];
+                    $groupData['members'][] = [
+                        'id' => $user['id'],
+                        'username' => $user['username'],
+                        'nickname' => $user['nickname'],
+                        'avatar' => $user['avatar'] ?? null,
+                    ];
+                }
             }
         }
         
@@ -98,35 +135,41 @@ class GroupService
     /**
      * 创建小组
      */
+    /**
+     * 创建小组
+     */
     public function create(array $data, int $userId): array
     {
-        // 验证必填字段
-        if (empty($data['name'])) {
-            throw new \InvalidArgumentException('Group name is required');
+        if (empty($userId)) {
+            throw new ValidationException(['user_id' => 'User ID is required']);
         }
-        
+
+        if (empty($data['name'])) {
+            throw new ValidationException(['name' => 'Group name is required']);
+        }
+
         $group = new Group();
         $group->name = $data['name'];
         $group->description = $data['description'] ?? null;
         $group->user_id = $userId; // 创建者
-        $group->image_id = $data['image_id'] ?? null;
+        $group->image_id = null;
         $group->info = $data['info'] ?? [];
-        
+
         $id = $this->groupRepository->create($group);
         $group->id = $id;
-        
+
         return $group->toArray();
     }
 
     /**
      * 更新小组
      */
-    public function update(int $id, array $data): ?array
+    public function update(int $id, array $data): array
     {
         $group = $this->groupRepository->findById($id);
         
         if (!$group) {
-            return null;
+            throw new NotFoundException("Group not found: {$id}");
         }
         
         if (isset($data['name'])) {
@@ -134,9 +177,6 @@ class GroupService
         }
         if (isset($data['description'])) {
             $group->description = $data['description'];
-        }
-        if (isset($data['image_id'])) {
-            $group->image_id = $data['image_id'];
         }
         if (isset($data['info'])) {
             $group->info = $data['info'];
@@ -148,23 +188,40 @@ class GroupService
     }
 
     /**
-     * 删除小组（级联删除成员和班级关联）
+     * 删除小组（级联删除关联的班级）
      */
-    public function delete(int $id): bool
+    public function delete(int $id): void
     {
         $group = $this->groupRepository->findById($id);
         
         if (!$group) {
-            return false;
+            throw new NotFoundException("Group not found: {$id}");
         }
         
-        return $this->dbHelper->transaction(function() use ($id) {
+        $this->dbHelper->transaction(function() use ($id) {
+            // 获取关联的班级
+            $classRelations = $this->classGroupRepository->findByGroupId($id);
+            
+            // 删除关联的班级（包括班级下的教师和学生）
+            foreach ($classRelations as $relation) {
+                $classId = $relation->class_id;
+                
+                // 删除班级下的教师和学生
+                $this->teacherRepository->deleteByClassId($classId);
+                $this->studentRepository->deleteByClassId($classId);
+                
+                // 删除班级-小组关联
+                $this->classGroupRepository->delete($classId, $id);
+                
+                // 删除班级
+                $this->classRepository->delete($classId);
+            }
+            
             // 删除小组成员
             $this->groupUserRepository->deleteByGroupId($id);
-            // 删除班级关联
-            $this->classGroupRepository->deleteByGroupId($id);
+            
             // 删除小组
-            return $this->groupRepository->delete($id);
+            $this->groupRepository->delete($id);
         });
     }
 
@@ -173,21 +230,18 @@ class GroupService
      */
     public function addMember(int $groupId, int $userId): array
     {
-        // 验证小组存在
         $group = $this->groupRepository->findById($groupId);
         if (!$group) {
-            throw new \InvalidArgumentException('Invalid group ID');
+            throw new NotFoundException("Group not found: {$groupId}");
         }
         
-        // 验证用户存在
         $user = $this->userRepository->findById($userId);
         if (!$user) {
-            throw new \InvalidArgumentException('Invalid user ID');
+            throw new ValidationException(['user_id' => 'Invalid user ID']);
         }
         
-        // 检查是否已存在
         if ($this->groupUserRepository->exists($userId, $groupId)) {
-            throw new \InvalidArgumentException('User is already a member of this group');
+            throw new ValidationException(['user_id' => 'User is already a member of this group']);
         }
         
         $groupUser = new GroupUser();
@@ -197,29 +251,28 @@ class GroupService
         $this->groupUserRepository->create($groupUser);
         
         return [
-            'id' => $user->id,
-            'nickname' => $user->nickname,
-            'avatar' => $user->avatar,
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'nickname' => $user['nickname'],
+            'avatar' => $user['avatar'] ?? null,
         ];
     }
 
     /**
      * 从小组移除成员
      */
-    public function removeMember(int $groupId, int $userId): bool
+    public function removeMember(int $groupId, int $userId): void
     {
-        // 验证小组存在
         $group = $this->groupRepository->findById($groupId);
         if (!$group) {
-            return false;
+            throw new NotFoundException("Group not found: {$groupId}");
         }
         
-        // 检查成员是否存在
         if (!$this->groupUserRepository->exists($userId, $groupId)) {
-            return false;
+            throw new NotFoundException('User is not a member of this group');
         }
         
-        return $this->groupUserRepository->delete($userId, $groupId);
+        $this->groupUserRepository->delete($userId, $groupId);
     }
 
     /**
@@ -227,21 +280,18 @@ class GroupService
      */
     public function addClass(int $groupId, int $classId): array
     {
-        // 验证小组存在
         $group = $this->groupRepository->findById($groupId);
         if (!$group) {
-            throw new \InvalidArgumentException('Invalid group ID');
+            throw new NotFoundException("Group not found: {$groupId}");
         }
         
-        // 验证班级存在
         $class = $this->classRepository->findById($classId);
         if (!$class) {
-            throw new \InvalidArgumentException('Invalid class ID');
+            throw new ValidationException(['class_id' => 'Invalid class ID']);
         }
         
-        // 检查是否已存在
         if ($this->classGroupRepository->exists($classId, $groupId)) {
-            throw new \InvalidArgumentException('Class is already associated with this group');
+            throw new ValidationException(['class_id' => 'Class is already associated with this group']);
         }
         
         $classGroup = new ClassGroup();
@@ -256,19 +306,17 @@ class GroupService
     /**
      * 取消班级与小组的关联
      */
-    public function removeClass(int $groupId, int $classId): bool
+    public function removeClass(int $groupId, int $classId): void
     {
-        // 验证小组存在
         $group = $this->groupRepository->findById($groupId);
         if (!$group) {
-            return false;
+            throw new NotFoundException("Group not found: {$groupId}");
         }
         
-        // 检查关联是否存在
         if (!$this->classGroupRepository->exists($classId, $groupId)) {
-            return false;
+            throw new NotFoundException('Class is not associated with this group');
         }
         
-        return $this->classGroupRepository->delete($classId, $groupId);
+        $this->classGroupRepository->delete($classId, $groupId);
     }
 }

@@ -90,7 +90,7 @@ class Logger implements LoggerInterface
      */
     public function info(string|\Stringable $message, array $context = []): void
     {
-        $this->log(LogLevel::INFO, $context);
+        $this->log(LogLevel::INFO, $message, $context);
     }
 
     /**

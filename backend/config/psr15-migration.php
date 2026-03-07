@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * PSR-15 Middleware Migration Configuration
+ * 
+ * This configuration file manages the gradual migration from legacy switch-case
+ * routing to PSR-15 middleware stack. It defines which endpoints have been
+ * migrated and should use the new architecture.
+ * 
+ * Migration Strategy:
+ * - Phase 1: Foundation Setup (health check endpoints)
+ * - Phase 2: Auth Module (/api/auth/*)
+ * - Phase 3: Schools Module (/api/schools/*)
+ * - Phase 4: Classes Module (/api/classes/*)
+ * - Phase 5: Groups, Students, Teachers (/api/groups/*, /api/students/*, /api/teachers/*)
+ * - Phase 6: Legacy Removal (remove this config and switch-case routing)
+ * 
+ * Usage:
+ * - Set 'enabled' to true to activate PSR-15 stack for migrated paths
+ * - Add paths to 'paths' array as endpoints are migrated and tested
+ * - Use exact paths or prefixes (prefix matching is automatic)
+ * - Test thoroughly before adding paths to this list
+ * 
+ * @see public/index.php shouldUsePsr15Stack() function
+ */
+
+return [
+    /**
+     * Feature flag to enable/disable PSR-15 middleware stack
+     * 
+     * Set to false to completely disable PSR-15 routing and use legacy only.
+     * Set to true to enable PSR-15 for paths listed below.
+     * 
+     * This allows quick rollback if issues are discovered.
+     * 
+     * NOTE: The PSR15_ENABLED environment variable takes precedence over this setting.
+     * If PSR15_ENABLED is set in .env, it will override this configuration value.
+     * This provides additional control for deployment environments.
+     */
+    'enabled' => true,
+    
+    /**
+     * List of migrated paths/prefixes that should use PSR-15 middleware stack
+     * 
+     * Paths are matched using:
+     * 1. Exact match: '/api/health' matches only '/api/health'
+     * 2. Prefix match: '/api/health' also matches '/api/health/check', '/api/health/status', etc.
+     * 
+     * Add paths here as they are migrated and tested.
+     * Order doesn't matter - most specific match wins.
+     * 
+     * Examples:
+     * - '/api/health' - Health check endpoints
+     * - '/api/auth' - Authentication endpoints
+     * - '/api/schools' - School management endpoints
+     */
+    'paths' => [
+        // Phase 1: Foundation Setup
+        // Uncomment when health check endpoints are ready for testing
+        '/api/health',
+        '/api/version',
+        
+        // Phase 2: Auth Module
+        '/api/auth/login',
+        '/api/auth/user',
+        
+        // Phase 3: Schools Module
+        '/api/schools',
+        
+        // Phase 4: Classes Module
+        '/api/classes',
+        
+        // Phase 5: Groups, Students, Teachers
+        '/api/groups',
+        '/api/students',
+        '/api/teachers',
+        '/api/users/search',
+    ],
+    
+    /**
+     * Migration metadata (for tracking and documentation)
+     */
+    'metadata' => [
+        'last_updated' => '2026-03-07',
+        'current_phase' => 'Phase 5: Groups, Students, Teachers',
+        'migrated_count' => 0,
+        'total_endpoints' => 30, // Approximate total endpoints to migrate
+    ],
+];

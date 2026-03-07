@@ -11,6 +11,13 @@ class ResponseHelper
 {
     public function __construct(private ResponseFactoryInterface $responseFactory) {}
 
+    public function json(array $data, int $code = 200): ResponseInterface
+    {
+        $response = $this->responseFactory->createResponse($code);
+        $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+
     public function success(array $data, string $message = 'Success', int $code = 200): ResponseInterface
     {
         $response = $this->responseFactory->createResponse($code);

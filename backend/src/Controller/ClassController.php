@@ -5,115 +5,73 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Service\ClassService;
-use App\Helper\ResponseHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 
-class ClassController
+class ClassController extends AbstractController
 {
     public function __construct(
-        private ClassService $classService,
-        private ResponseHelper $responseHelper
-    ) {}
+        ResponseFactoryInterface $responseFactory,
+        private ClassService $classService
+    ) {
+        parent::__construct($responseFactory);
+    }
 
     public function index(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $params = $request->getQueryParams();
-            $page = (int)($params['page'] ?? 1);
-            $pageSize = (int)($params['pageSize'] ?? 20);
-            $schoolId = isset($params['school_id']) ? (int)$params['school_id'] : null;
-            
-            $pageSize = min(max($pageSize, 1), 100);
-            $result = $this->classService->getList($page, $pageSize, $schoolId);
-            
-            return $this->responseHelper->success($result);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get classes: ' . $e->getMessage(), 500);
-        }
+        $params = $request->getQueryParams();
+        $page = (int)($params['page'] ?? 1);
+        $pageSize = min(max((int)($params['pageSize'] ?? 20), 1), 100);
+        $schoolId = isset($params['school_id']) ? (int)$params['school_id'] : null;
+
+        $result = $this->classService->getList($page, $pageSize, $schoolId);
+        return $this->success($result);
     }
 
-    public function show(ServerRequestInterface $request, int $id): ResponseInterface
+    public function show(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $class = $this->classService->getById($id);
-            if (!$class) {
-                return $this->responseHelper->error('Class not found', 404);
-            }
-            return $this->responseHelper->success($class);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get class: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $class = $this->classService->getById($id);
+        return $this->success($class);
     }
 
     public function create(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $data = json_decode((string)$request->getBody(), true);
-            
-            if (empty($data['name'])) {
-                return $this->responseHelper->error('Class name is required', 400, ['name' => ['Name is required']]);
-            }
-            if (empty($data['school_id'])) {
-                return $this->responseHelper->error('School ID is required', 400, ['school_id' => ['School ID is required']]);
-            }
-            
-            $class = $this->classService->create($data);
-            return $this->responseHelper->success($class, 'Class created successfully', 201);
-        } catch (\InvalidArgumentException $e) {
-            return $this->responseHelper->error($e->getMessage(), 400);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to create class: ' . $e->getMessage(), 500);
-        }
+        $data = $this->getJsonBody($request);
+        $currentUserId = $this->getUserId($request);
+        $class = $this->classService->create($data, $currentUserId);
+        return $this->success($class, 'Class created successfully');
     }
 
-    public function update(ServerRequestInterface $request, int $id): ResponseInterface
+    public function update(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $data = json_decode((string)$request->getBody(), true);
-            $class = $this->classService->update($id, $data);
-            
-            if (!$class) {
-                return $this->responseHelper->error('Class not found', 404);
-            }
-            return $this->responseHelper->success($class, 'Class updated successfully');
-        } catch (\InvalidArgumentException $e) {
-            return $this->responseHelper->error($e->getMessage(), 400);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to update class: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $data = $this->getJsonBody($request);
+        $class = $this->classService->update($id, $data);
+        return $this->success($class, 'Class updated successfully');
     }
 
-    public function delete(ServerRequestInterface $request, int $id): ResponseInterface
+    public function delete(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $result = $this->classService->delete($id);
-            if (!$result) {
-                return $this->responseHelper->error('Class not found', 404);
-            }
-            return $this->responseHelper->success([], 'Class deleted successfully');
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to delete class: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $params = $request->getQueryParams();
+        $deleteGroups = isset($params['deleteGroups']) && $params['deleteGroups'] === 'true';
+        $this->classService->delete($id, $deleteGroups);
+        return $this->success([], 'Class deleted successfully');
     }
 
-    public function teachers(ServerRequestInterface $request, int $id): ResponseInterface
+    public function teachers(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $teachers = $this->classService->getTeachers($id);
-            return $this->responseHelper->success(['teachers' => $teachers]);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get teachers: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $teachers = $this->classService->getTeachers($id);
+        return $this->success(['teachers' => $teachers]);
     }
 
-    public function students(ServerRequestInterface $request, int $id): ResponseInterface
+    public function students(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $students = $this->classService->getStudents($id);
-            return $this->responseHelper->success(['students' => $students]);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get students: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $students = $this->classService->getStudents($id);
+        return $this->success(['students' => $students]);
     }
 }

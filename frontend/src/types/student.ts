@@ -11,6 +11,18 @@ export interface Student {
     name: string
     school_id: number
   }
+  school?: {
+    id: number
+    name: string
+  }
+  groups?: Array<{
+    id: number
+    name: string
+  }>
+  auto_joined_groups?: Array<{
+    id: number
+    name: string
+  }>
   created_at?: string
 }
 
@@ -23,7 +35,7 @@ export interface StudentFormData {
 // 学生列表查询参数
 export interface StudentListParams {
   page?: number
-  page_size?: number
+  pageSize?: number
   search?: string
   class_id?: number
   school_id?: number
@@ -35,7 +47,7 @@ export interface StudentListResponse {
   pagination: {
     total: number
     page: number
-    page_size: number
-    total_pages: number
+    pageSize: number
+    totalPages: number
   }
 }

@@ -20,7 +20,6 @@ export interface Group {
 export interface GroupFormData {
   name: string
   description?: string
-  image_id?: number
   info?: string
 }
 

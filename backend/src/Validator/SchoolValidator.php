@@ -29,21 +29,17 @@ class SchoolValidator
             $this->validator->stringLength($data['name'], 'name', 1, 255);
         }
 
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
-        }
-
         // 验证principal_id（可选）
         if (isset($data['principal_id']) && $data['principal_id'] !== null) {
             $this->validator->integer($data['principal_id'], 'principal_id');
             $this->validator->integerRange((int)$data['principal_id'], 'principal_id', 1);
         }
 
-        // 验证info（可选）
+        // 验证info（可选，接受字符串或数组）
         if (isset($data['info']) && $data['info'] !== null) {
-            $this->validator->isArray($data['info'], 'info');
+            if (!is_string($data['info']) && !is_array($data['info'])) {
+                $this->validator->custom($data['info'], 'info', fn() => 'info must be a string or array');
+            }
         }
 
         return $this->validator->getErrors();
@@ -61,21 +57,17 @@ class SchoolValidator
             $this->validator->stringLength($data['name'], 'name', 1, 255);
         }
 
-        // 验证image_id（可选）
-        if (isset($data['image_id']) && $data['image_id'] !== null) {
-            $this->validator->integer($data['image_id'], 'image_id');
-            $this->validator->integerRange((int)$data['image_id'], 'image_id', 1);
-        }
-
         // 验证principal_id（可选）
         if (isset($data['principal_id']) && $data['principal_id'] !== null) {
             $this->validator->integer($data['principal_id'], 'principal_id');
             $this->validator->integerRange((int)$data['principal_id'], 'principal_id', 1);
         }
 
-        // 验证info（可选）
+        // 验证info（可选，接受字符串或数组）
         if (isset($data['info']) && $data['info'] !== null) {
-            $this->validator->isArray($data['info'], 'info');
+            if (!is_string($data['info']) && !is_array($data['info'])) {
+                $this->validator->custom($data['info'], 'info', fn() => 'info must be a string or array');
+            }
         }
 
         return $this->validator->getErrors();

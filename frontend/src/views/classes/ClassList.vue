@@ -1,28 +1,28 @@
 <template>
   <div class="class-list">
-    <PageHeader title="班级管理">
+    <PageHeader :title="$t('class.title')">
       <template #actions>
         <el-button type="primary" @click="handleCreate">
           <el-icon><Plus /></el-icon>
-          创建班级
+          {{ $t('class.create') }}
         </el-button>
       </template>
     </PageHeader>
 
     <el-card>
       <el-form :inline="true" :model="searchForm" @submit.prevent="handleSearch">
-        <el-form-item label="搜索">
+        <el-form-item :label="$t('common.search')">
           <el-input
             v-model="searchForm.search"
-            placeholder="输入班级名称"
+            :placeholder="$t('class.searchPlaceholder')"
             clearable
             @clear="handleSearch"
           />
         </el-form-item>
-        <el-form-item label="学校">
+        <el-form-item :label="$t('class.school')">
           <el-select
             v-model="searchForm.school_id"
-            placeholder="选择学校"
+            :placeholder="$t('class.selectSchool')"
             clearable
             @change="handleSearch"
           >
@@ -35,8 +35,8 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ $t('common.search') }}</el-button>
+          <el-button @click="handleReset">{{ $t('common.reset') }}</el-button>
         </el-form-item>
       </el-form>
 
@@ -61,9 +61,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ClassForm from './ClassForm.vue'
@@ -71,6 +72,8 @@ import { getClasses, deleteClass } from '@/api/class'
 import { getSchools } from '@/api/school'
 import type { Class } from '@/types/class'
 import type { School } from '@/types/school'
+
+const { t } = useI18n()
 
 // 搜索表单
 const searchForm = reactive({
@@ -88,19 +91,30 @@ const pagination = reactive({
   total: 0
 })
 
-// 表格列配置
-const columns = [
+// 表格列配置 - 使用计算属性以支持语言切换
+const columns = computed(() => [
   { prop: 'id', label: 'ID', width: 80 },
-  { prop: 'name', label: '班级名称', minWidth: 200 },
+  { prop: 'name', label: t('class.name'), minWidth: 200 },
   {
     prop: 'school',
-    label: '所属学校',
+    label: t('class.school'),
     minWidth: 150,
     formatter: (row: Class) => row.school?.name || '-'
   },
-  { prop: 'info', label: '简介', minWidth: 200, showOverflowTooltip: true },
-  { prop: 'created_at', label: '创建时间', width: 180 }
-]
+  {
+    prop: 'info',
+    label: t('class.info'),
+    minWidth: 200,
+    showOverflowTooltip: true,
+    formatter: (row: Class) => {
+      if (!row.info || (Array.isArray(row.info) && row.info.length === 0)) return '-'
+      if (typeof row.info === 'object' && 'description' in row.info) return row.info.description
+      if (typeof row.info === 'string') return row.info
+      return '-'
+    }
+  },
+  { prop: 'created_at', label: t('common.createdAt'), width: 180 }
+])
 
 // 表单相关
 const formVisible = ref(false)
@@ -130,7 +144,7 @@ async function loadClasses() {
     classes.value = response.items
     pagination.total = response.pagination.total
   } catch (error) {
-    ElMessage.error('加载班级列表失败')
+    ElMessage.error(t('common.failed'))
     console.error(error)
   } finally {
     loading.value = false
@@ -174,22 +188,47 @@ function handleEdit(classData: Class) {
 // 删除
 async function handleDelete(classData: Class) {
   try {
+    // 第一步：确认是否删除班级
     await ElMessageBox.confirm(
-      `确定要删除班级"${classData.name}"吗？删除后将同时删除该班级下的所有教师和学生数据。`,
-      '删除确认',
+      t('class.deleteConfirm', { name: classData.name }),
+      t('common.deleteConfirm'),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('class.nextStep'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
     
-    await deleteClass(classData.id)
-    ElMessage.success('删除成功')
+    // 第二步：询问是否删除关联的小组
+    let deleteGroups = false
+    try {
+      await ElMessageBox.confirm(
+        t('class.deleteGroupsMessage'),
+        t('class.deleteGroupsTitle'),
+        {
+          confirmButtonText: t('class.deleteGroupsConfirm'),
+          cancelButtonText: t('class.keepGroups'),
+          type: 'warning',
+          distinguishCancelAndClose: true
+        }
+      )
+      deleteGroups = true
+    } catch (error) {
+      // 用户选择保留小组或关闭对话框
+      if (error === 'cancel') {
+        deleteGroups = false
+      } else {
+        // 用户点击了关闭按钮，取消整个删除操作
+        return
+      }
+    }
+    
+    await deleteClass(classData.id, deleteGroups)
+    ElMessage.success(t('class.deleteSuccess'))
     loadClasses()
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('common.failed'))
       console.error(error)
     }
   }

@@ -5,7 +5,7 @@
     <el-card v-loading="loading">
       <template v-if="user">
         <div class="profile-header">
-          <el-avatar :size="80" :src="user.avatar">
+          <el-avatar :size="80">
             {{ user.nickname?.charAt(0) }}
           </el-avatar>
           <div class="profile-info">

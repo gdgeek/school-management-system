@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 class SecurityIntegrationTest extends TestCase
 {
     private JwtHelper $jwt;
-    private string $secret = 'test-secret-key-for-security-tests';
+    private string $secret = 'test-secret-key-for-security-tests-only-32chars';
 
     protected function setUp(): void
     {
@@ -279,7 +279,7 @@ class SecurityIntegrationTest extends TestCase
 
     public function testJwtRejectsTokenSignedWithDifferentSecret(): void
     {
-        $otherJwt = new JwtHelper('attacker-secret-key', 3600);
+        $otherJwt = new JwtHelper('attacker-secret-key-must-be-32chars', 3600);
         $token = $otherJwt->generate(['user_id' => 1, 'roles' => ['admin']]);
 
         $this->expectException(UnauthorizedException::class);

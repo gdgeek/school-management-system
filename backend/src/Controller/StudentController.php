@@ -5,107 +5,48 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Service\StudentService;
-use App\Helper\ResponseHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 
-/**
- * 学生管理控制器
- * 处理学生相关的HTTP请求
- */
-class StudentController
+class StudentController extends AbstractController
 {
     public function __construct(
-        private StudentService $studentService,
-        private ResponseHelper $responseHelper
-    ) {}
+        ResponseFactoryInterface $responseFactory,
+        private StudentService $studentService
+    ) {
+        parent::__construct($responseFactory);
+    }
 
-    /**
-     * GET /api/students
-     * 获取学生列表
-     */
     public function index(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $params = $request->getQueryParams();
-            $page = (int)($params['page'] ?? 1);
-            $pageSize = (int)($params['pageSize'] ?? 20);
-            $classId = isset($params['class_id']) ? (int)$params['class_id'] : null;
-            
-            $pageSize = min(max($pageSize, 1), 100);
-            $result = $this->studentService->getList($page, $pageSize, $classId);
-            
-            return $this->responseHelper->success($result);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get students: ' . $e->getMessage(), 500);
-        }
+        $params = $request->getQueryParams();
+        $page = (int)($params['page'] ?? 1);
+        $pageSize = min(max((int)($params['pageSize'] ?? 20), 1), 100);
+        $classId = isset($params['class_id']) ? (int)$params['class_id'] : null;
+
+        $result = $this->studentService->getList($page, $pageSize, $classId);
+        return $this->success($result);
     }
 
-    /**
-     * GET /api/students/{id}
-     * 获取学生详情
-     */
-    public function show(ServerRequestInterface $request, int $id): ResponseInterface
+    public function show(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $student = $this->studentService->getById($id);
-            
-            if (!$student) {
-                return $this->responseHelper->error('Student not found', 404);
-            }
-            
-            return $this->responseHelper->success($student);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to get student: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $student = $this->studentService->getById($id);
+        return $this->success($student);
     }
 
-    /**
-     * POST /api/students
-     * 添加学生到班级
-     */
     public function create(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $data = json_decode((string)$request->getBody(), true);
-            
-            if (empty($data['user_id'])) {
-                return $this->responseHelper->error('User ID is required', 400, [
-                    'user_id' => ['User ID is required']
-                ]);
-            }
-            if (empty($data['class_id'])) {
-                return $this->responseHelper->error('Class ID is required', 400, [
-                    'class_id' => ['Class ID is required']
-                ]);
-            }
-            
-            $student = $this->studentService->create($data);
-            
-            return $this->responseHelper->success($student, 'Student added successfully', 201);
-        } catch (\InvalidArgumentException $e) {
-            return $this->responseHelper->error($e->getMessage(), 400);
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to add student: ' . $e->getMessage(), 500);
-        }
+        $data = $this->getJsonBody($request);
+        $student = $this->studentService->create($data);
+        return $this->success($student, 'Student added successfully');
     }
 
-    /**
-     * DELETE /api/students/{id}
-     * 移除学生
-     */
-    public function delete(ServerRequestInterface $request, int $id): ResponseInterface
+    public function delete(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $result = $this->studentService->delete($id);
-            
-            if (!$result) {
-                return $this->responseHelper->error('Student not found', 404);
-            }
-            
-            return $this->responseHelper->success([], 'Student removed successfully');
-        } catch (\Exception $e) {
-            return $this->responseHelper->error('Failed to remove student: ' . $e->getMessage(), 500);
-        }
+        $id = (int)$request->getAttribute('id');
+        $this->studentService->delete($id);
+        return $this->success([], 'Student removed successfully');
     }
 }

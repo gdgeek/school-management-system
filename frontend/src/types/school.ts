@@ -8,6 +8,7 @@ export interface School {
   principal_id?: number
   principal?: {
     id: number
+    username?: string
     nickname: string
     avatar?: string
   }
@@ -18,7 +19,6 @@ export interface School {
 // 学校表单数据接口
 export interface SchoolFormData {
   name: string
-  image_id?: number
   info?: string
   principal_id?: number
 }

@@ -19,8 +19,8 @@ class Group
     public int $user_id;
     public ?int $image_id = null;
     public ?array $info = null;
-    public DateTime $created_at;
-    public DateTime $updated_at;
+    public ?DateTime $created_at = null;
+    public ?DateTime $updated_at = null;
 
     public static function tableName(): string
     {
@@ -54,8 +54,8 @@ class Group
             'user_id' => $this->user_id,
             'image_id' => $this->image_id,
             'info' => $this->info,
-            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

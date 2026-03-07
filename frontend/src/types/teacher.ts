@@ -23,7 +23,7 @@ export interface TeacherFormData {
 // 教师列表查询参数
 export interface TeacherListParams {
   page?: number
-  page_size?: number
+  pageSize?: number
   search?: string
   class_id?: number
   school_id?: number
@@ -35,7 +35,7 @@ export interface TeacherListResponse {
   pagination: {
     total: number
     page: number
-    page_size: number
-    total_pages: number
+    pageSize: number
+    totalPages: number
   }
 }

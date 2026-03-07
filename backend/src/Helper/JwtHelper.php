@@ -22,6 +22,12 @@ class JwtHelper
 
     public function __construct(string $secret, int $expireTime = 3600)
     {
+        // Requirement 2.2.2: enforce 256-bit (32-byte) minimum secret key length
+        if (strlen($secret) < 32) {
+            throw new \InvalidArgumentException(
+                'JWT secret key must be at least 32 characters (256 bits) long.'
+            );
+        }
         $this->secret = $secret;
         $this->expireTime = $expireTime;
     }
@@ -61,7 +67,8 @@ class JwtHelper
         } catch (SignatureInvalidException $e) {
             throw new UnauthorizedException('Invalid token signature');
         } catch (\Exception $e) {
-            throw new UnauthorizedException('Invalid token: ' . $e->getMessage());
+            // Do not leak internal exception details to callers
+            throw new UnauthorizedException('Invalid token');
         }
     }
 

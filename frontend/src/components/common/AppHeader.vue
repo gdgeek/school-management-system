@@ -24,10 +24,11 @@
 
       <!-- 语言切换 -->
       <el-dropdown @command="handleLanguageChange" v-if="!isMobile">
-        <el-button :icon="Globe" circle />
+        <el-button :icon="Switch" circle />
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+            <el-dropdown-item command="zh-CN">简体中文</el-dropdown-item>
+            <el-dropdown-item command="zh-TW">繁體中文</el-dropdown-item>
             <el-dropdown-item command="en-US">English</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -36,7 +37,7 @@
       <!-- 用户菜单 -->
       <el-dropdown @command="handleUserCommand">
         <div class="user-info">
-          <el-avatar :src="authStore.user?.avatar" :size="isMobile ? 28 : 32">
+          <el-avatar :size="isMobile ? 28 : 32">
             {{ authStore.user?.nickname?.charAt(0) }}
           </el-avatar>
           <span class="username" v-if="!isMobile">{{ authStore.user?.nickname }}</span>
@@ -58,7 +59,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Fold, Globe, Back } from '@element-plus/icons-vue'
+import { Fold, Switch, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { ElMessage } from 'element-plus'

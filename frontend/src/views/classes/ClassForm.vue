@@ -36,13 +36,6 @@
         />
       </el-form-item>
 
-      <el-form-item label="班级图片" prop="image_id">
-        <ImageUpload
-          v-model="formData.image_id"
-          :image-url="imageUrl"
-        />
-      </el-form-item>
-
       <el-form-item label="班级简介" prop="info">
         <el-input
           v-model="formData.info"
@@ -58,15 +51,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, computed, onMounted } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import FormDialog from '@/components/common/FormDialog.vue'
-import ImageUpload from '@/components/common/ImageUpload.vue'
 import { createClass, updateClass } from '@/api/class'
 import { getSchools } from '@/api/school'
 import type { Class, ClassFormData } from '@/types/class'
 import type { School } from '@/types/school'
+import { useFormErrors } from '@/composables/useFormErrors'
 
 interface Props {
   visible: boolean
@@ -92,19 +85,27 @@ const dialogVisible = computed({
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const schools = ref<School[]>([])
+const { applyErrors, clearErrors } = useFormErrors(formRef)
 
 const formData = reactive<ClassFormData>({
-  school_id: 0,
+  school_id: null as any,
   name: '',
-  image_id: undefined,
   info: ''
 })
 
-const imageUrl = ref<string>()
-
 const rules: FormRules = {
   school_id: [
-    { required: true, message: '请选择学校', trigger: 'change' }
+    { required: true, message: '请选择学校', trigger: 'change' },
+    { 
+      validator: (_rule, value, callback) => {
+        if (!value || value === 0) {
+          callback(new Error('请选择学校'))
+        } else {
+          callback()
+        }
+      }, 
+      trigger: 'change' 
+    }
   ],
   name: [
     { required: true, message: '请输入班级名称', trigger: 'blur' },
@@ -117,8 +118,11 @@ async function loadSchools() {
   try {
     const response = await getSchools({ page: 1, page_size: 1000 })
     schools.value = response.items
-  } catch (error) {
-    console.error('加载学校列表失败:', error)
+  } catch (error: any) {
+    // 忽略请求去重导致的取消错误
+    if (error?.code !== 'ERR_CANCELED') {
+      console.error('加载学校列表失败:', error)
+    }
   }
 }
 
@@ -129,9 +133,7 @@ watch(
     if (classData && props.mode === 'edit') {
       formData.school_id = classData.school_id
       formData.name = classData.name
-      formData.image_id = classData.image_id
       formData.info = classData.info || ''
-      imageUrl.value = classData.image_url
     } else {
       resetForm()
     }
@@ -141,12 +143,10 @@ watch(
 
 // 重置表单
 function resetForm() {
-  formData.school_id = 0
+  formData.school_id = null as any
   formData.name = ''
-  formData.image_id = undefined
   formData.info = ''
-  imageUrl.value = undefined
-  formRef.value?.clearValidate()
+  clearErrors()
 }
 
 // 提交表单
@@ -167,8 +167,8 @@ async function handleSubmit() {
 
     emit('success')
     resetForm()
-  } catch (error: any) {
-    if (error !== false) {
+  } catch (error: unknown) {
+    if (error !== false && !applyErrors(error)) {
       ElMessage.error(props.mode === 'create' ? '创建失败' : '更新失败')
       console.error(error)
     }
@@ -183,7 +183,13 @@ function handleCancel() {
   emit('update:visible', false)
 }
 
-onMounted(() => {
-  loadSchools()
-})
+// 监听对话框打开时加载学校列表
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      loadSchools()
+    }
+  }
+)
 </script>

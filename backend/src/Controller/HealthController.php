@@ -8,7 +8,6 @@ use App\Helper\ResponseHelper;
 use App\Helper\DatabaseHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Redis;
 
 /**
  * 健康检查控制器
@@ -19,7 +18,7 @@ class HealthController
     public function __construct(
         private ResponseHelper $responseHelper,
         private DatabaseHelper $dbHelper,
-        private Redis $redis
+        private mixed $redis = null
     ) {}
 
     /**
@@ -114,6 +113,12 @@ class HealthController
      */
     private function checkRedis(): array
     {
+        if ($this->redis === null) {
+            return [
+                'status' => 'unhealthy',
+                'message' => 'Redis not configured',
+            ];
+        }
         try {
             $this->redis->ping();
             
@@ -177,7 +182,7 @@ class HealthController
     /**
      * 格式化字节数为可读格式
      */
-    private function formatBytes(int $bytes): string
+    private function formatBytes(float|int $bytes): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
         $i = 0;

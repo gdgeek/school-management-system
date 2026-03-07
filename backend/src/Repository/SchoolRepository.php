@@ -57,9 +57,9 @@ class SchoolRepository
      */
     public function findByPrincipalId(int $principalId): array
     {
-        $sql = "SELECT * FROM edu_school WHERE principal_id = :principal_id ORDER BY created_at DESC";
+        $sql = "SELECT * FROM edu_school WHERE principal = :principal ORDER BY created_at DESC";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':principal_id', $principalId, PDO::PARAM_INT);
+        $stmt->bindValue(':principal', $principalId, PDO::PARAM_INT);
         $stmt->execute();
         
         $schools = [];
@@ -95,14 +95,14 @@ class SchoolRepository
      */
     public function create(School $school): int
     {
-        $sql = "INSERT INTO edu_school (name, image_id, info, principal_id, created_at, updated_at) 
-                VALUES (:name, :image_id, :info, :principal_id, NOW(), NOW())";
+        $sql = "INSERT INTO edu_school (name, image_id, info, principal, created_at, updated_at) 
+                VALUES (:name, :image_id, :info, :principal, NOW(), NOW())";
         
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':name', $school->name, PDO::PARAM_STR);
         $stmt->bindValue(':image_id', $school->image_id, PDO::PARAM_INT);
         $stmt->bindValue(':info', json_encode($school->info), PDO::PARAM_STR);
-        $stmt->bindValue(':principal_id', $school->principal_id, PDO::PARAM_INT);
+        $stmt->bindValue(':principal', $school->principal_id, PDO::PARAM_INT);
         $stmt->execute();
         
         return (int)$this->pdo->lastInsertId();
@@ -114,7 +114,7 @@ class SchoolRepository
     public function update(School $school): bool
     {
         $sql = "UPDATE edu_school 
-                SET name = :name, image_id = :image_id, info = :info, principal_id = :principal_id, updated_at = NOW() 
+                SET name = :name, image_id = :image_id, info = :info, principal = :principal, updated_at = NOW() 
                 WHERE id = :id";
         
         $stmt = $this->pdo->prepare($sql);
@@ -122,7 +122,7 @@ class SchoolRepository
         $stmt->bindValue(':name', $school->name, PDO::PARAM_STR);
         $stmt->bindValue(':image_id', $school->image_id, PDO::PARAM_INT);
         $stmt->bindValue(':info', json_encode($school->info), PDO::PARAM_STR);
-        $stmt->bindValue(':principal_id', $school->principal_id, PDO::PARAM_INT);
+        $stmt->bindValue(':principal', $school->principal_id, PDO::PARAM_INT);
         
         return $stmt->execute();
     }

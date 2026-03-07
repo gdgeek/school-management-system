@@ -31,9 +31,11 @@ export function updateClass(id: number, data: ClassFormData) {
 
 /**
  * 删除班级
+ * @param id 班级ID
+ * @param deleteGroups 是否同时删除关联的小组
  */
-export function deleteClass(id: number) {
-  return request.delete(`/classes/${id}`)
+export function deleteClass(id: number, deleteGroups = false) {
+  return request.delete(`/classes/${id}`, { params: { deleteGroups: deleteGroups.toString() } })
 }
 
 /**

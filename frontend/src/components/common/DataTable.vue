@@ -25,7 +25,33 @@
         v-bind="$attrs"
         @selection-change="handleSelectionChange"
       >
-        <slot></slot>
+        <slot>
+          <!-- Auto-generate columns from columns prop -->
+          <template v-if="columns && columns.length">
+            <el-table-column
+              v-for="col in columns"
+              :key="col.prop"
+              :prop="col.prop"
+              :label="col.label"
+              :width="col.width"
+              :min-width="col.minWidth"
+              :show-overflow-tooltip="col.showOverflowTooltip"
+            >
+              <template v-if="col.formatter" #default="{ row }">
+                {{ col.formatter(row) }}
+              </template>
+              <template v-else #default="{ row }">
+                {{ row[col.prop] }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" @click="handleEdit(row)">编辑</el-button>
+                <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </template>
+        </slot>
       </el-table>
     </template>
     
@@ -99,8 +125,18 @@ import { useAppStore } from '@/stores/app'
 import VirtualList from './VirtualList.vue'
 import type { PaginationResponse } from '@/utils/request'
 
+interface Column {
+  prop: string
+  label: string
+  width?: number
+  minWidth?: number
+  showOverflowTooltip?: boolean
+  formatter?: (row: any) => string
+}
+
 interface Props {
   data: any[]
+  columns?: Column[]
   loading?: boolean
   pagination?: PaginationResponse['pagination']
   pageSizes?: number[]
@@ -125,6 +161,8 @@ const emit = defineEmits<{
   pageChange: [page: number]
   sizeChange: [size: number]
   selectionChange: [selection: any[]]
+  edit: [row: any]
+  delete: [row: any]
 }>()
 
 const appStore = useAppStore()
@@ -150,6 +188,14 @@ function handleSizeChange(size: number) {
 
 function handleSelectionChange(selection: any[]) {
   emit('selectionChange', selection)
+}
+
+function handleEdit(row: any) {
+  emit('edit', row)
+}
+
+function handleDelete(row: any) {
+  emit('delete', row)
 }
 </script>
 

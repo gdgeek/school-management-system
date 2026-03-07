@@ -19,11 +19,14 @@
         "yiisoft/validator": "^1.0",
         "yiisoft/log": "^2.0",
         "yiisoft/log-target-file": "^3.0",
-        "firebase/php-jwt": "^6.0"
+        "firebase/php-jwt": "^6.0",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0",
-        "yiisoft/yii-debug": "^2.0||dev-master"
+        "yiisoft/yii-debug": "^2.0||dev-master",
+        "giorgiosironi/eris": "^0.12"
     },
     "autoload": {
         "psr-4": {

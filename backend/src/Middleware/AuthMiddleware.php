@@ -52,6 +52,9 @@ class AuthMiddleware implements MiddlewareInterface
             
         } catch (UnauthorizedException $e) {
             return $this->unauthorizedResponse($e->getMessage());
+        } catch (\App\Exception\ValidationException|\App\Exception\NotFoundException|\App\Exception\ForbiddenException $e) {
+            // 业务异常不属于认证问题，继续冒泡到 ErrorHandlingMiddleware
+            throw $e;
         } catch (\Exception $e) {
             return $this->unauthorizedResponse('Authentication failed');
         }
@@ -60,6 +63,10 @@ class AuthMiddleware implements MiddlewareInterface
     /**
      * 从请求中提取JWT令牌
      * 支持从Authorization头和Cookie中提取
+     *
+     * Security note: query-parameter token extraction (?token=...) is intentionally
+     * NOT supported. Tokens in URLs are logged by web servers, proxies, and browsers,
+     * and can leak via the Referer header — violating requirement 2.2.4.
      */
     private function extractToken(ServerRequestInterface $request): ?string
     {
@@ -75,12 +82,6 @@ class AuthMiddleware implements MiddlewareInterface
             return $cookies['auth_token'];
         }
 
-        // 3. 从查询参数提取（用于跨系统跳转）
-        $queryParams = $request->getQueryParams();
-        if (isset($queryParams['token'])) {
-            return $queryParams['token'];
-        }
-
         return null;
     }
 
@@ -93,6 +94,7 @@ class AuthMiddleware implements MiddlewareInterface
         $response->getBody()->write(json_encode([
             'code' => 401,
             'message' => $message,
+            'data' => null,
             'timestamp' => time(),
         ]));
         

@@ -24,12 +24,19 @@ class UserRepository
      */
     public function findById(int $id): ?array
     {
-        $sql = "SELECT id, username, nickname, avatar, email, created_at 
+        $sql = "SELECT id, username, nickname, email, created_at 
                 FROM user 
-                WHERE id = :id AND deleted_at IS NULL";
+                WHERE id = :id AND status = 10";
         
         $result = $this->db->query($sql, ['id' => $id]);
-        return $result[0] ?? null;
+        $user = $result[0] ?? null;
+        
+        // 添加 avatar 字段（当前数据库表中没有此字段，设置为 null）
+        if ($user) {
+            $user['avatar'] = null;
+        }
+        
+        return $user;
     }
 
     /**
@@ -37,9 +44,9 @@ class UserRepository
      */
     public function findByUsername(string $username): ?array
     {
-        $sql = "SELECT id, username, password, nickname, avatar, email, created_at 
+        $sql = "SELECT id, username, password_hash, nickname, email, created_at 
                 FROM user 
-                WHERE username = :username AND deleted_at IS NULL";
+                WHERE username = :username AND status = 10";
         
         $result = $this->db->query($sql, ['username' => $username]);
         return $result[0] ?? null;
@@ -50,16 +57,9 @@ class UserRepository
      */
     public function isAdmin(int $userId): bool
     {
-        // 这里需要根据实际的权限表结构实现
-        // 暂时通过user表的role字段判断
-        $sql = "SELECT role FROM user WHERE id = :id AND deleted_at IS NULL";
-        $result = $this->db->query($sql, ['id' => $userId]);
-        
-        if (empty($result)) {
-            return false;
-        }
-
-        return ($result[0]['role'] ?? '') === 'admin';
+        // user 表没有 role 字段，暂时返回 false
+        // TODO: 根据实际权限系统实现
+        return false;
     }
 
     /**
@@ -69,7 +69,7 @@ class UserRepository
     {
         $sql = "SELECT COUNT(*) as count 
                 FROM edu_school 
-                WHERE principal_id = :user_id AND deleted_at IS NULL";
+                WHERE principal = :user_id";
         
         $result = $this->db->query($sql, ['user_id' => $userId]);
         return ($result[0]['count'] ?? 0) > 0;
@@ -82,7 +82,7 @@ class UserRepository
     {
         $sql = "SELECT COUNT(*) as count 
                 FROM edu_teacher 
-                WHERE user_id = :user_id AND deleted_at IS NULL";
+                WHERE user_id = :user_id";
         
         $result = $this->db->query($sql, ['user_id' => $userId]);
         return ($result[0]['count'] ?? 0) > 0;
@@ -95,7 +95,7 @@ class UserRepository
     {
         $sql = "SELECT COUNT(*) as count 
                 FROM edu_student 
-                WHERE user_id = :user_id AND deleted_at IS NULL";
+                WHERE user_id = :user_id";
         
         $result = $this->db->query($sql, ['user_id' => $userId]);
         return ($result[0]['count'] ?? 0) > 0;
@@ -111,11 +111,17 @@ class UserRepository
         }
 
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT id, username, nickname, avatar, email 
+        $sql = "SELECT id, username, nickname, email 
                 FROM user 
-                WHERE id IN ($placeholders) AND deleted_at IS NULL";
+                WHERE id IN ($placeholders) AND status = 10";
         
-        return $this->db->query($sql, $ids);
+        $users = $this->db->query($sql, array_values($ids));
+        
+        // 添加 avatar 字段（当前数据库表中没有此字段，设置为 null）
+        return array_map(function($user) {
+            $user['avatar'] = null;
+            return $user;
+        }, $users);
     }
 
     /**
@@ -123,18 +129,15 @@ class UserRepository
      */
     public function search(string $keyword, int $limit = 20, int $offset = 0): array
     {
-        $sql = "SELECT id, username, nickname, avatar, email 
+        $sql = "SELECT id, username, nickname, email 
                 FROM user 
-                WHERE (nickname LIKE :keyword OR username LIKE :keyword) 
-                AND deleted_at IS NULL 
+                WHERE (nickname LIKE ? OR username LIKE ?) 
+                AND status = 10 
                 ORDER BY id DESC 
-                LIMIT :limit OFFSET :offset";
+                LIMIT " . $limit . " OFFSET " . $offset;
         
-        return $this->db->query($sql, [
-            'keyword' => "%{$keyword}%",
-            'limit' => $limit,
-            'offset' => $offset,
-        ]);
+        $like = "%{$keyword}%";
+        return $this->db->query($sql, [$like, $like]);
     }
 
     /**
@@ -144,10 +147,11 @@ class UserRepository
     {
         $sql = "SELECT COUNT(*) as count 
                 FROM user 
-                WHERE (nickname LIKE :keyword OR username LIKE :keyword) 
-                AND deleted_at IS NULL";
+                WHERE (nickname LIKE ? OR username LIKE ?) 
+                AND status = 10";
         
-        $result = $this->db->query($sql, ['keyword' => "%{$keyword}%"]);
+        $like = "%{$keyword}%";
+        $result = $this->db->query($sql, [$like, $like]);
         return (int)($result[0]['count'] ?? 0);
     }
 }

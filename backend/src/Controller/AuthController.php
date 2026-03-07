@@ -15,20 +15,19 @@ use Psr\Http\Message\ResponseFactoryInterface;
  * 认证控制器
  * 处理登录、令牌刷新、登出等认证相关操作
  */
-class AuthController
+class AuthController extends AbstractController
 {
     private AuthService $authService;
     private JwtHelper $jwtHelper;
-    private ResponseFactoryInterface $responseFactory;
 
     public function __construct(
         AuthService $authService,
         JwtHelper $jwtHelper,
         ResponseFactoryInterface $responseFactory
     ) {
+        parent::__construct($responseFactory);
         $this->authService = $authService;
         $this->jwtHelper = $jwtHelper;
-        $this->responseFactory = $responseFactory;
     }
 
     /**
@@ -38,19 +37,19 @@ class AuthController
     public function login(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $body = json_decode((string)$request->getBody(), true);
+            $body = $this->getJsonBody($request);
             $username = $body['username'] ?? '';
             $password = $body['password'] ?? '';
 
             if (empty($username) || empty($password)) {
-                return $this->errorResponse('Username and password are required', 400);
+                return $this->error('Username and password are required', 400);
             }
 
             // 验证用户凭证
             $user = $this->authService->authenticate($username, $password);
             
             if (!$user) {
-                return $this->errorResponse('Invalid credentials', 401);
+                return $this->error('Invalid credentials', 401);
             }
 
             // 生成JWT令牌
@@ -61,7 +60,7 @@ class AuthController
                 'school_id' => $user['school_id'] ?? null,
             ]);
 
-            return $this->successResponse([
+            return $this->success([
                 'token' => $token,
                 'user' => [
                     'id' => $user['id'],
@@ -71,7 +70,36 @@ class AuthController
             ]);
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Login failed: ' . $e->getMessage(), 500);
+            return $this->error('Login failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/auth/user
+     * 获取当前认证用户信息
+     */
+    public function user(ServerRequestInterface $request): ResponseInterface
+    {
+        try {
+            // Extract user_id from request attributes (set by AuthMiddleware)
+            $userId = $this->getUserId($request);
+            
+            if (!$userId) {
+                return $this->error('User not authenticated', 401);
+            }
+
+            // Get user details from AuthService
+            $user = $this->authService->getUserInfo($userId);
+            
+            if (!$user) {
+                return $this->error('User not found', 404);
+            }
+
+            // Return user information in standard API response format
+            return $this->success($user);
+
+        } catch (\Exception $e) {
+            return $this->error('Failed to get user info: ' . $e->getMessage(), 500);
         }
     }
 
@@ -85,20 +113,20 @@ class AuthController
             $token = $this->extractToken($request);
             
             if (empty($token)) {
-                return $this->errorResponse('Missing token', 400);
+                return $this->error('Missing token', 400);
             }
 
             // 刷新令牌
             $newToken = $this->jwtHelper->refresh($token);
 
-            return $this->successResponse([
+            return $this->success([
                 'token' => $newToken,
             ]);
 
         } catch (UnauthorizedException $e) {
-            return $this->errorResponse($e->getMessage(), 401);
+            return $this->error($e->getMessage(), 401);
         } catch (\Exception $e) {
-            return $this->errorResponse('Token refresh failed', 500);
+            return $this->error('Token refresh failed', 500);
         }
     }
 
@@ -109,19 +137,19 @@ class AuthController
     public function logout(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $userId = $request->getAttribute('user_id');
+            $userId = $this->getUserId($request);
             
             if ($userId) {
                 // 清除Redis中的会话
                 $this->authService->logout($userId);
             }
 
-            return $this->successResponse([
+            return $this->success([
                 'message' => 'Logged out successfully',
             ]);
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Logout failed', 500);
+            return $this->error('Logout failed', 500);
         }
     }
 
@@ -132,30 +160,30 @@ class AuthController
     public function me(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $userId = $request->getAttribute('user_id');
+            $userId = $this->getUserId($request);
             
             if (!$userId) {
-                return $this->errorResponse('User not authenticated', 401);
+                return $this->error('User not authenticated', 401);
             }
 
             $user = $this->authService->getUserInfo($userId);
             
             if (!$user) {
-                return $this->errorResponse('User not found', 404);
+                return $this->error('User not found', 404);
             }
 
-            return $this->successResponse([
+            return $this->success([
                 'user' => [
                     'id' => $user['id'],
                     'username' => $user['username'],
                     'nickname' => $user['nickname'] ?? '',
                     'avatar' => $user['avatar'] ?? '',
-                    'roles' => $request->getAttribute('roles', []),
+                    'roles' => $this->getUserRoles($request),
                 ],
             ]);
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to get user info', 500);
+            return $this->error('Failed to get user info', 500);
         }
     }
 
@@ -166,18 +194,18 @@ class AuthController
     public function verify(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $body = json_decode((string)$request->getBody(), true);
+            $body = $this->getJsonBody($request);
             $sessionToken = $body['session_token'] ?? '';
 
             if (empty($sessionToken)) {
-                return $this->errorResponse('Session token is required', 400);
+                return $this->error('Session token is required', 400);
             }
 
             // 从Redis验证会话令牌
             $user = $this->authService->verifySessionToken($sessionToken);
             
             if (!$user) {
-                return $this->errorResponse('Invalid session token', 401);
+                return $this->error('Invalid session token', 401);
             }
 
             // 生成JWT令牌
@@ -188,7 +216,7 @@ class AuthController
                 'school_id' => $user['school_id'] ?? null,
             ]);
 
-            return $this->successResponse([
+            return $this->success([
                 'token' => $token,
                 'user' => [
                     'id' => $user['id'],
@@ -198,7 +226,7 @@ class AuthController
             ]);
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Verification failed', 500);
+            return $this->error('Verification failed', 500);
         }
     }
 
@@ -212,36 +240,5 @@ class AuthController
             return $matches[1];
         }
         return null;
-    }
-
-    /**
-     * 返回成功响应
-     */
-    private function successResponse(array $data): ResponseInterface
-    {
-        $response = $this->responseFactory->createResponse(200);
-        $response->getBody()->write(json_encode([
-            'code' => 200,
-            'message' => 'Success',
-            'data' => $data,
-            'timestamp' => time(),
-        ]));
-        
-        return $response->withHeader('Content-Type', 'application/json');
-    }
-
-    /**
-     * 返回错误响应
-     */
-    private function errorResponse(string $message, int $code = 400): ResponseInterface
-    {
-        $response = $this->responseFactory->createResponse($code);
-        $response->getBody()->write(json_encode([
-            'code' => $code,
-            'message' => $message,
-            'timestamp' => time(),
-        ]));
-        
-        return $response->withHeader('Content-Type', 'application/json');
     }
 }

@@ -1,0 +1,35 @@
+{
+    "generated_at": "2026-03-06T17:57:10+00:00",
+    "base_url": "http:\/\/localhost:8084",
+    "iterations": 3,
+    "results": {
+        "GET \/api\/health (public)": {
+            "min": 2.67,
+            "max": 6.16,
+            "avg": 4.02,
+            "p95": 6.16,
+            "count": 3
+        },
+        "POST \/api\/auth\/login": {
+            "min": 337.39,
+            "max": 353.18,
+            "avg": 344.84,
+            "p95": 353.18,
+            "count": 3
+        },
+        "GET \/api\/schools (authenticated)": {
+            "min": 2.62,
+            "max": 8.25,
+            "avg": 4.77,
+            "p95": 8.25,
+            "count": 3
+        },
+        "GET \/api\/classes (authenticated)": {
+            "min": 2.61,
+            "max": 7.16,
+            "avg": 4.17,
+            "p95": 7.16,
+            "count": 3
+        }
+    }
+}

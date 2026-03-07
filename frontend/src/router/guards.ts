@@ -11,6 +11,12 @@ export function setupRouterGuards(router: Router): void {
   router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
+    // Teachers 和 Students 路由完全开放，无需任何检查
+    if (to.path === '/teachers' || to.path === '/students') {
+      next()
+      return
+    }
+
     // 检查URL中是否有会话令牌（从主系统跳转）
     const sessionToken = getSessionTokenFromUrl()
     if (sessionToken && !authStore.isAuthenticated) {
